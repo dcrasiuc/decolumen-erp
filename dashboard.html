@@ -118,64 +118,76 @@
     </div>
 
     <script>
-        // ESTO SE EJECUTA CUANDO LA PÁGINA CARGA TOTALMENTE
-        window.onload = function() {
-            const API_URL = "https://script.google.com/macros/s/AKfycbz7HMGvoWQcsjh9jdFjZKMtGFJwZLik-yq8bazGjtqtQlqZoPR97V_WDraTjatDUQj1/exec";
-            
-            console.log("Dashboard cargado correctamente.");
+window.onload = function() {
+    const API_URL = "TU_URL_DE_GOOGLE_AQUI"; // <--- PEGA TU URL DE /exec AQUÍ
+    
+    const mVenta = document.getElementById('modalVenta');
+    const statusIA = document.getElementById('statusIA');
 
-            // --- MANEJO DE MODALES ---
-            const mVenta = document.getElementById('modalVenta');
+    document.getElementById('cardVenta').onclick = () => mVenta.classList.add('active');
+    document.getElementById('closeVenta').onclick = () => mVenta.classList.remove('active');
 
-            // Clic en Nueva Venta
-            document.getElementById('cardVenta').onclick = function() {
-                mVenta.classList.add('active');
-            };
+    // --- FUNCIÓN PARA COMPRIMIR Y ENVIAR ---
+    const fileInput = document.getElementById('fileInput');
+    fileInput.onchange = function() {
+        const file = this.files[0];
+        if (!file) return;
 
-            // Clic en Cerrar Venta
-            document.getElementById('closeVenta').onclick = function() {
-                mVenta.classList.remove('active');
-            };
+        statusIA.innerHTML = "⌛ Comprimiendo imagen...";
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = async function() {
+                // Achicamos la imagen para que Google no se trabe (Max 1000px)
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                if (width > 1000) { height *= 1000 / width; width = 1000; }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Convertimos a calidad media (0.7)
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                
+                statusIA.innerHTML = "⌛ IA analizando factura...";
+                
+                try {
+                    // Usamos una promesa con tiempo límite (30 segundos)
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 30000);
 
-            // Otros botones (Prueba de funcionamiento)
-            document.getElementById('cardTransfer').onclick = () => alert("Módulo Transferencia activado");
-            document.getElementById('cardGasto').onclick = () => alert("Módulo Gasto activado");
-            document.getElementById('cardCierre').onclick = () => alert("Módulo Cierre activado");
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: "leerFactura", image: compressedBase64 })
+                    }, { signal: controller.signal });
 
-            // --- MÁSCARA DE MILES ---
-            const inputMonto = document.getElementById('montoGs');
-            inputMonto.addEventListener('input', (e) => {
-                let val = e.target.value.replace(/\D/g, "");
-                e.target.value = val ? new Intl.NumberFormat('de-DE').format(val) : "";
-            });
+                    clearTimeout(timeout);
+                    const result = await response.json();
 
-            // --- LÓGICA IA GEMINI ---
-            const fileInput = document.getElementById('fileInput');
-            fileInput.onchange = function() {
-                if (this.files && this.files[0]) {
-                    const reader = new FileReader();
-                    document.getElementById('statusIA').textContent = "⌛ IA analizando...";
-                    reader.onload = async function(e) {
-                        try {
-                            const res = await fetch(API_URL, {
-                                method: 'POST',
-                                body: JSON.stringify({ action: "leerFactura", image: e.target.result })
-                            });
-                            const result = await res.json();
-                            if(result.success) {
-                                document.getElementById('rucCli').value = result.ruc || "";
-                                document.getElementById('montoGs').value = result.monto ? new Intl.NumberFormat('de-DE').format(result.monto) : "";
-                                document.getElementById('nroFact').value = result.nro || "";
-                                document.getElementById('statusIA').textContent = "✅ Lectura Exitosa";
-                            }
-                        } catch (err) { 
-                            document.getElementById('statusIA').textContent = "❌ Error en IA"; 
-                        }
-                    };
-                    reader.readAsDataURL(this.files[0]);
+                    if (result.success) {
+                        document.getElementById('rucCli').value = result.ruc || "";
+                        document.getElementById('montoGs').value = result.monto ? new Intl.NumberFormat('de-DE').format(result.monto) : "";
+                        document.getElementById('nroFact').value = result.nro || "";
+                        statusIA.innerHTML = "<span style='color:green'>✅ ¡Lectura exitosa!</span>";
+                        // Buscamos nombre si hay RUC
+                        if(result.ruc) document.getElementById('rucCli').dispatchEvent(new Event('blur'));
+                    } else {
+                        statusIA.innerHTML = "<span style='color:red'>❌ Error IA: " + (result.error || "Datos no hallados") + "</span>";
+                    }
+                } catch (err) {
+                    statusIA.innerHTML = "<span style='color:red'>❌ El servidor tardó mucho o falló.</span>";
+                    console.error(err);
                 }
             };
         };
-    </script>
+        reader.readAsDataURL(file);
+    };
+};
+</script>
 </body>
 </html>
+
