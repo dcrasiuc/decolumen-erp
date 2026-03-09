@@ -182,7 +182,7 @@
                 }
             });
 
-            // IA OCR
+            // IA Gemini OCR
             const fileInput = document.getElementById('fileInput');
             fileInput.onchange = function() {
                 if (this.files && this.files[0]) {
@@ -201,3 +201,82 @@
                                 if(result.nro) document.getElementById('nroComprobante').value = result.nro;
                                 document.getElementById('fileName').textContent = "✅ Lectura exitosa";
                                 document.getElementById('clienteRuc').dispatchEvent(new Event('blur'));
+                            }
+                        } catch (err) { 
+                            console.error(err);
+                            document.getElementById('fileName').textContent = "❌ Error en IA"; 
+                        }
+                    };
+                    reader.readAsDataURL(this.files[0]);
+                }
+            };
+
+            // REGISTRAR OPERACIÓN FINAL
+            document.getElementById('formVenta').onsubmit = async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('submitVenta');
+                btn.disabled = true;
+                btn.textContent = "Procesando...";
+
+                const montoFinal = inputMonto.value.replace(/\./g, "");
+                
+                // 1. Datos para hoja VENTAS
+                const venta = {
+                    sheetName: "VENTAS",
+                    rowData: [
+                        "VNT-" + Date.now(), 
+                        new Date().toLocaleDateString(),
+                        document.getElementById('nroComprobante').value,
+                        document.getElementById('clienteNombre').value,
+                        document.getElementById('clienteRuc').value,
+                        Math.round(montoFinal/1.1), 
+                        Math.round(montoFinal/11), 
+                        montoFinal,
+                        "₲", 
+                        (condicion.value === "Contado" ? document.getElementById('medioPago').value : "CRÉDITO"),
+                        (condicion.value === "Contado" ? "Cobrado" : "Pendiente"), 
+                        ""
+                    ]
+                };
+
+                try {
+                    // Guardar Venta
+                    await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(venta) });
+                    
+                    // 2. Si es contado, guardar Movimiento de Caja
+                    if (condicion.value === "Contado") {
+                        const mov = {
+                            sheetName: "MOVIMIENTOS",
+                            rowData: [
+                                "MOV-" + Date.now(), 
+                                venta.rowData[0], 
+                                new Date().toLocaleString(),
+                                "Admin", 
+                                document.getElementById('cajaDestino').value, 
+                                "Venta", 
+                                "Ingreso",
+                                montoFinal, 
+                                "₲", 
+                                1, 
+                                "Completado", 
+                                "Fact " + venta.rowData[2]
+                            ]
+                        };
+                        await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(mov) });
+                    }
+
+                    alert("¡Registro completado con éxito!");
+                    modal.classList.remove('active');
+                    e.target.reset();
+                    document.getElementById('fileName').textContent = "";
+                } catch (err) {
+                    alert("Error de conexión con el servidor");
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = "Registrar Operación";
+                }
+            };
+        });
+    </script>
+</body>
+</html>
