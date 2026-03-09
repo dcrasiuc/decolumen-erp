@@ -247,6 +247,7 @@
                                 });
                                 
                                 const result = await response.json();
+				console.log("Lo que la IA leyó realmente:", result.textoCompleto);
                                 
                                 if(result.success) {
                                     if(result.ruc) document.getElementById('clienteRuc').value = result.ruc;
