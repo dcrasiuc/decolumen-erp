@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decolumen ERP - Panel de Control</title>
+    <style>
+        /* ESTILOS ORIGINALES RECUPERADOS */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { display: flex; height: 100vh; background-color: #f4f7f6; overflow: hidden; }
+        
+        .sidebar { width: 250px; background-color: #176894; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
+        .logo-area { padding: 25px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .logo-area h2 { font-size: 24px; letter-spacing: 1px; }
+        .logo-area span { color: #F6B221; }
+        
+        .nav-menu { flex-grow: 1; padding: 20px 0; }
+        .nav-item { padding: 15px 25px; display: block; color: white; text-decoration: none; font-size: 15px; transition: 0.2s; border-left: 4px solid transparent; cursor: pointer; }
+        .nav-item:hover, .nav-item.active { background-color: rgba(255,255,255,0.1); border-left-color: #F6B221; }
+        
+        .logout-btn { padding: 15px 25px; background-color: #125275; color: white; text-align: center; cursor: pointer; font-weight: bold; border-top: 1px solid rgba(255,255,255,0.1); }
+        .logout-btn:hover { background-color: #d9534f; }
+
+        .main-content { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        .top-header { background-color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .header-title { color: #333; font-size: 18px; font-weight: bold; }
+        .user-name { font-weight: bold; color: #176894; }
+
+        .workspace { padding: 30px; }
+        .section-title { margin-bottom: 20px; color: #444; font-size: 18px; font-weight: bold; }
+        .action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        
+        .action-card { background: white; border-radius: 10px; padding: 25px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; transition: 0.2s; border: 1px solid #eaeaea; }
+        .action-card:hover { transform: translateY(-3px); border-color: #F6B221; box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+        .action-icon { font-size: 35px; margin-bottom: 10px; display: block; }
+        .action-card h3 { color: #176894; font-size: 16px; margin-bottom: 5px; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 600px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .modal-header h3 { color: #176894; }
+        .close-modal { font-size: 28px; cursor: pointer; color: #999; }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #555; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .form-row { display: flex; gap: 15px; }
+        .form-row .form-group { flex: 1; }
+        
+        .btn-submit { width: 100%; padding: 12px; background-color: #F6B221; color: #333; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        .btn-submit:hover { background-color: #e5a11c; }
+        .btn-submit:disabled { background-color: #ccc; }
+        .btn-scan { width: 100%; padding: 10px; border: 1px dashed #176894; background: #e8f4fd; color: #176894; cursor: pointer; border-radius: 6px; margin-top: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo-area"><h2>DECO<span>LUMEN</span></h2></div>
+        <div class="nav-menu">
+            <div class="nav-item active">📊 Inicio / Dashboard</div>
+            <div class="nav-item">🛒 Ventas y Cobros</div>
+            <div class="nav-item">📦 Compras y Gastos</div>
+            <div class="nav-item">💸 Movimientos Cajas</div>
+            <div class="nav-item">🏦 Bancos y Cheques</div>
+            <div class="nav-item">📈 Reportes Z</div>
+        </div>
+        <div class="logout-btn" onclick="window.location.href='index.html'">Cerrar Sesión</div>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <div class="header-title">Resumen Operativo</div>
+            <div class="user-info"><span class="user-name">👤 Administrador</span></div>
+        </div>
+
+        <div class="workspace">
+            <div class="section-title">Acciones Rápidas</div>
+            <div class="action-grid">
+                <div class="action-card" id="btnVenta">
+                    <span class="action-icon">💵</span>
+                    <h3>Nueva Venta</h3>
+                </div>
+                <div class="action-card" id="btnTransferencia">
+                    <span class="action-icon">🔄</span>
+                    <h3>Transferencia</h3>
+                </div>
+                <div class="action-card" id="btnGasto">
+                    <span class="action-icon">🧾</span>
+                    <h3>Registrar Gasto</h3>
+                </div>
+                <div class="action-card">
+                    <span class="action-icon">🔒</span>
+                    <h3>Cierre Caja</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalVenta" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🛒 Venta y Facturación - Decolumen</h3>
+                <span class="close-modal" id="closeVentaModal">&times;</span>
+            </div>
+            <form id="formVenta">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Condición</label>
+                        <select id="condicionVenta">
+                            <option value="Contado">Contado</option>
+                            <option value="Credito">Crédito / Saldo</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>N° Comprobante</label>
+                        <input type="text" id="nroComprobante" required placeholder="001-001-XXXX">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Cliente / RUC</label>
+                    <div class="form-row">
+                        <input type="text" id="clienteNombre" required placeholder="Razón Social" style="flex:2">
+                        <input type="text" id="clienteRuc" required placeholder="RUC" style="flex:1">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Total Factura (Gs)</label>
+                        <input type="text" id="montoVenta" required style="text-align: right; font-weight: bold; font-size: 18px; color: #176894;">
+                    </div>
+                    <div class="form-group">
+                        <label>IVA</label>
+                        <select id="ivaTipo"><option value="11">10%</option><option value="21">5%</option></select>
+                    </div>
+                </div>
+                
+                <div id="seccionCobro">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Medio de Pago</label>
+                            <select id="medioPago">
+                                <option value="Efectivo">Efectivo</option>
+                                <option value="POS Sudameris">Tarjeta POS</option>
+                                <option value="Anticipo">Usar Anticipo</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Caja/Banco</label>
+                            <select id="cajaVenta">
+                                <option value="Caja Mostrador">Caja Mostrador</option>
+                                <option value="Banco Sudameris">Banco Sudameris</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top:10px">
+                    <label>Comprobante Físico</label>
+                    <button type="button" class="btn-scan" onclick="document.getElementById('fileInput').click()">
+                        📷 Capturar / Subir Foto
+                    </button>
+                    <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
+                    <div id="fileName" style="font-size: 11px; color: #176894; margin-top: 5px; text-align: center; font-weight: bold;"></div>
+                </div>
+
+                <button type="submit" class="btn-submit" id="submitVenta">Registrar Operación</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalTransfer" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔄 Nueva Transferencia</h3>
+                <span class="close-modal" id="closeTransferModal">&times;</span>
+            </div>
+            <form id="formTransfer">
+                <div class="form-row">
+                    <div class="form-group"><label>Origen</label><select id="origen" required><option value="Caja Mostrador">Caja Mostrador</option><option value="Caja Fuerte">Caja Fuerte</option></select></div>
+                    <div class="form-group"><label>Destino</label><select id="destino" required><option value="Caja Fuerte">Caja Fuerte</option><option value="Caja Mostrador">Caja Mostrador</option></select></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Monto</label><input type="text" id="montoT" required style="text-align: right;"></div>
+                    <div class="form-group"><label>Moneda</label><select id="monedaT"><option value="₲">₲</option></select></div>
+                </div>
+                <button type="submit" class="btn-submit">Transferir</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('load', function() {
+            const API_URL = "https://script.google.com/macros/s/AKfycbz7HMGvoWQcsjh9jdFjZKMtGFJwZLik-yq8bazGjtqtQlqZoPR97V_WDraTjatDUQj1/exec";
+            
+            let base64Image = "";
+
+            // 1. Modales
+            const modalVenta = document.getElementById('modalVenta');
+            const modalTransfer = document.getElementById('modalTransfer');
+
+            document.getElementById('btnVenta').onclick = () => modalVenta.classList.add('active');
+            document.getElementById('closeVentaModal').onclick = () => modalVenta.classList.remove('active');
+            document.getElementById('btnTransferencia').onclick = () => modalTransfer.classList.add('active');
+            document.getElementById('closeTransferModal').onclick = () => modalTransfer.classList.remove('active');
+
+            // 2. Máscara de miles
+            const inputMonto = document.getElementById('montoVenta');
+            inputMonto.addEventListener('input', (e) => {
+                let val = e.target.value.replace(/\D/g, "");
+                if (val === "") { e.target.value = ""; return; }
+                e.target.value = new Intl.NumberFormat('de-DE').format(val);
+            });
+
+            // 3. Condición de venta
+            const condicion = document.getElementById('condicionVenta');
+            const seccionCobro = document.getElementById('seccionCobro');
+            condicion.onchange = () => {
+                seccionCobro.style.display = (condicion.value === "Credito") ? "none" : "block";
+            };
+
+            // 4. Lógica de Cámara / OCR
+            const fileInput = document.getElementById('fileInput');
+            const fileNameDisplay = document.getElementById('fileName');
+
+            fileInput.onchange = function() {
+                if (this.files && this.files[0]) {
+                    const reader = new FileReader();
+                    fileNameDisplay.textContent = "⌛ Leyendo factura (IA)...";
+                    
+                    reader.onload = async function(e) {
+                        base64Image = e.target.result;
+                        try {
+                            ctry {
+                    // Petición optimizada para evitar bloqueos de seguridad
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ 
+                            action: "leerFactura", 
+                            image: base64Image 
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if(result.success) {
+                        if(result.ruc) document.getElementById('clienteRuc').value = result.ruc;
+                        if(result.monto) document.getElementById('montoVenta').value = new Intl.NumberFormat('de-DE').format(result.monto);
+                        if(result.nro) document.getElementById('nroComprobante').value = result.nro;
+                        fileNameDisplay.textContent = "✅ Datos cargados correctamente.";
+                    } else {
+                        fileNameDisplay.textContent = "⚠️ Foto capturada (Carga manual).";
+                    }
+                } catch (err) {
+                    console.error("Error de comunicación:", err);
+                    fileNameDisplay.textContent = "✅ Foto lista. Complete los campos.";
+                }
+            }; // <--- ESTE ES EL FINAL DEL READER.ONLOAD
+            reader.readAsDataURL(this.files[0]);
+        }
+    }; // <--- ESTE ES EL FINAL DEL FILEINPUT.ONCHANGE
+
+            // 5. Envío de Venta
+            const formVenta = document.getElementById('formVenta');
+            formVenta.onsubmit = async (e) => {
+                e.preventDefault();
+                const submitBtn = document.getElementById('submitVenta');
+                const total = inputMonto.value.replace(/\./g, "");
+                
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Guardando...";
+
+                const filas = [{
+                    sheetName: "VENTAS",
+                    rowData: [
+                        "VNT-"+Date.now(), new Date().toLocaleDateString(), 
+                        document.getElementById('nroComprobante').value, document.getElementById('clienteNombre').value, 
+                        document.getElementById('clienteRuc').value, Math.round(total/1.1), Math.round(total/11), 
+                        total, "₲", document.getElementById('medioPago').value, 
+                        (condicion.value === "Contado" ? "Cobrado" : "Pendiente"), base64Image
+                    ]
+                }];
+
+                if(condicion.value === "Contado" && document.getElementById('medioPago').value === "Efectivo") {
+                    filas.push({
+                        sheetName: "MOVIMIENTOS",
+                        rowData: ["MOV-"+Date.now(), "VNT-"+Date.now(), new Date().toLocaleString(), "Admin", "Caja Mostrador", "Venta", "Ingreso", total, "₲", 1, "Completado", "Venta Fact " + document.getElementById('nroComprobante').value]
+                    });
+                }
+
+                try {
+                    for (let f of filas) {
+                        await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(f) });
+                    }
+                    alert("¡Venta Registrada!");
+                    modalVenta.classList.remove('active');
+                    formVenta.reset();
+                    base64Image = "";
+                    fileNameDisplay.textContent = "";
+                } catch (err) {
+                    alert("Error de conexión");
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Registrar Operación";
+                }
+            };
+        });
+    </script>
+</body>
+</html>
