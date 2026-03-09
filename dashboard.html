@@ -5,62 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Decolumen ERP - Panel de Control</title>
     <style>
-        /* ESTILOS BASE */
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        /* --- ESTILOS PROFESIONALES --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
         body { display: flex; height: 100vh; background-color: #f4f7f6; overflow: hidden; }
         
-        .sidebar { width: 250px; background-color: #176894; color: white; display: flex; flex-direction: column; flex-shrink: 0; transition: 0.3s; }
-        .logo-area { padding: 25px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .logo-area h2 { font-size: 24px; letter-spacing: 1px; }
+        .sidebar { width: 250px; background-color: #176894; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
+        .logo-area { padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
         .logo-area span { color: #F6B221; }
         
-        .nav-menu { flex-grow: 1; padding: 20px 0; }
-        .nav-item { padding: 15px 25px; display: block; color: white; text-decoration: none; font-size: 15px; transition: 0.2s; border-left: 4px solid transparent; cursor: pointer; }
+        .nav-menu { flex-grow: 1; padding: 10px 0; }
+        .nav-item { padding: 12px 25px; display: block; color: white; text-decoration: none; font-size: 14px; transition: 0.2s; border-left: 4px solid transparent; cursor: pointer; }
         .nav-item:hover, .nav-item.active { background-color: rgba(255,255,255,0.1); border-left-color: #F6B221; }
         
-        .logout-btn { padding: 15px 25px; background-color: #125275; color: white; text-align: center; cursor: pointer; font-weight: bold; border-top: 1px solid rgba(255,255,255,0.1); }
-
         .main-content { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; }
         .top-header { background-color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-
-        .workspace { padding: 30px; }
-        .section-title { margin-bottom: 20px; color: #444; font-size: 18px; font-weight: bold; }
-        .action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+        .workspace { padding: 20px; }
+        .action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
         
-        .action-card { background: white; border-radius: 10px; padding: 25px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; border: 1px solid #eaeaea; }
-        .action-icon { font-size: 35px; margin-bottom: 10px; display: block; }
+        .action-card { background: white; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; border: 1px solid #eaeaea; }
+        .action-card:hover { border-color: #F6B221; transform: translateY(-3px); }
 
         /* MODALES */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
         .modal-overlay.active { display: flex; }
-        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 95%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; }
-        .close-modal { font-size: 28px; cursor: pointer; color: #999; }
-
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #555; }
-        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
-        .form-row { display: flex; gap: 15px; }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 95%; max-width: 600px; max-height: 95vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 13px; color: #555; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .form-row { display: flex; gap: 10px; }
         .form-row .form-group { flex: 1; }
         
         .btn-submit { width: 100%; padding: 12px; background-color: #F6B221; color: #333; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
         .btn-scan { width: 100%; padding: 10px; border: 1px dashed #176894; background: #e8f4fd; color: #176894; cursor: pointer; border-radius: 6px; font-weight: bold; }
 
-        /* --- MEJORA: DISEÑO RESPONSIVO PARA MÓVILES --- */
         @media (max-width: 768px) {
             body { flex-direction: column; }
             .sidebar { width: 100%; height: auto; flex-direction: row; }
-            .logo-area { padding: 10px; border-bottom: none; }
-            .logo-area h2 { font-size: 18px; }
-            .nav-menu { display: flex; overflow-x: auto; padding: 0; }
-            .nav-item { padding: 10px 15px; white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; font-size: 13px; }
+            .nav-menu { display: flex; overflow-x: auto; }
+            .nav-item { padding: 10px 15px; border-left: none; border-bottom: 3px solid transparent; }
             .nav-item.active { border-bottom-color: #F6B221; }
-            .logout-btn { display: none; }
-            .top-header { padding: 10px 20px; }
-            .workspace { padding: 15px; }
-            .action-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-            .action-card { padding: 15px; }
-            .action-icon { font-size: 25px; }
+            .top-header { display: none; }
         }
     </style>
 </head>
@@ -71,27 +57,20 @@
         <div class="nav-menu">
             <div class="nav-item active">📊 Inicio</div>
             <div class="nav-item">🛒 Ventas</div>
-            <div class="nav-item">📦 Stock</div>
         </div>
-        <div class="logout-btn" onclick="window.location.href='index.html'">Salir</div>
     </div>
 
     <div class="main-content">
         <div class="top-header">
-            <div class="header-title">Panel Decolumen</div>
+            <div class="header-title">Panel Administrativo</div>
             <div class="user-info">👤 Admin</div>
         </div>
 
         <div class="workspace">
-            <div class="section-title">Acciones Rápidas</div>
             <div class="action-grid">
                 <div class="action-card" id="btnVenta">
-                    <span class="action-icon">💵</span>
+                    <span style="font-size:30px;">💵</span>
                     <h3>Nueva Venta</h3>
-                </div>
-                <div class="action-card" id="btnTransferencia">
-                    <span class="action-icon">🔄</span>
-                    <h3>Transferencia</h3>
                 </div>
             </div>
         </div>
@@ -101,41 +80,67 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>🛒 Registrar Venta</h3>
-                <span class="close-modal" id="closeVentaModal">&times;</span>
+                <span id="closeVentaModal" style="cursor:pointer; font-size:24px;">&times;</span>
             </div>
+            
             <form id="formVenta">
                 <div class="form-row">
                     <div class="form-group">
                         <label>Condición</label>
                         <select id="condicionVenta">
                             <option value="Contado">Contado</option>
-                            <option value="Credito">Crédito</option>
+                            <option value="Credito">Crédito (Saldo)</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label>N° Factura</label>
-                        <input type="text" id="nroComprobante" required placeholder="000-000-0000000">
+                        <input type="text" id="nroComprobante" required placeholder="001-001-0000000">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Cliente / RUC (Auto-búsqueda)</label>
-                    <div class="form-row">
-                        <input type="text" id="clienteRuc" required placeholder="RUC" style="flex:1">
-                        <input type="text" id="clienteNombre" required placeholder="Nombre / Razón Social" style="flex:2">
-                    </div>
-                </div>
+
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Total Gs.</label>
-                        <input type="text" id="montoVenta" required style="text-align: right; font-weight: bold;">
+                        <label>RUC Cliente</label>
+                        <input type="text" id="clienteRuc" required placeholder="RUC">
+                    </div>
+                    <div class="form-group">
+                        <label>Razón Social</label>
+                        <input type="text" id="clienteNombre" required placeholder="Nombre">
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label>Escanear Factura</label>
-                    <button type="button" class="btn-scan" onclick="document.getElementById('fileInput').click()">📷 Tomar Foto</button>
+                    <label>Total Gs.</label>
+                    <input type="text" id="montoVenta" required style="text-align: right; font-weight: bold; font-size: 18px; color: #176894;">
+                </div>
+
+                <div id="seccionCobro">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Medio de Pago</label>
+                            <select id="medioPago">
+                                <option value="Efectivo">Efectivo</option>
+                                <option value="Cheque">Cheque</option>
+                                <option value="Tarjeta POS">Tarjeta POS</option>
+                                <option value="Transferencia">Transferencia</option>
+                                <option value="Giro/Otros">Giro / Otros</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Caja/Banco Destino</label>
+                            <select id="cajaDestino">
+                                <option value="Caja Mostrador">Caja Mostrador</option>
+                                <option value="Banco Sudameris">Banco Sudameris</option>
+                                <option value="Caja Fuerte">Caja Fuerte</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <button type="button" class="btn-scan" onclick="document.getElementById('fileInput').click()">📷 Escanear Factura</button>
                     <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
-                    <div id="fileName" style="font-size: 11px; color: #176894; margin-top: 5px; text-align: center;"></div>
+                    <div id="fileName" style="font-size: 11px; color: #176894; text-align: center; font-weight: bold;"></div>
                 </div>
 
                 <button type="submit" class="btn-submit" id="submitVenta">Registrar Operación</button>
@@ -147,12 +152,17 @@
         window.addEventListener('load', function() {
             const API_URL = "https://script.google.com/macros/s/AKfycbz7HMGvoWQcsjh9jdFjZKMtGFJwZLik-yq8bazGjtqtQlqZoPR97V_WDraTjatDUQj1/exec";
             
-            // 1. Modales
-            const modalVenta = document.getElementById('modalVenta');
-            document.getElementById('btnVenta').onclick = () => modalVenta.classList.add('active');
-            document.getElementById('closeVentaModal').onclick = () => modalVenta.classList.remove('active');
+            const modal = document.getElementById('modalVenta');
+            const condicion = document.getElementById('condicionVenta');
+            const seccionCobro = document.getElementById('seccionCobro');
 
-            // 2. Máscara de miles
+            document.getElementById('btnVenta').onclick = () => modal.classList.add('active');
+            document.getElementById('closeVentaModal').onclick = () => modal.classList.remove('active');
+
+            condicion.onchange = () => {
+                seccionCobro.style.display = (condicion.value === "Credito") ? "none" : "block";
+            };
+
             const inputMonto = document.getElementById('montoVenta');
             inputMonto.addEventListener('input', (e) => {
                 let val = e.target.value.replace(/\D/g, "");
@@ -160,41 +170,24 @@
                 e.target.value = new Intl.NumberFormat('de-DE').format(val);
             });
 
-            // --- MEJORA: BÚSQUEDA AUTOMÁTICA DE RUC ---
+            // Buscar RUC
             document.getElementById('clienteRuc').addEventListener('blur', async function() {
                 const ruc = this.value.trim();
                 if (ruc.length > 5) {
-                    const nombreInput = document.getElementById('clienteNombre');
-                    const originalPlaceholder = nombreInput.placeholder;
-                    nombreInput.placeholder = "⌛ Buscando en base de datos...";
-                    
                     try {
-                        const res = await fetch(API_URL, {
-                            method: 'POST',
-                            body: JSON.stringify({ action: "buscarRUC", ruc: ruc })
-                        });
+                        const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "buscarRUC", ruc: ruc }) });
                         const data = await res.json();
-                        if (data.nombre) {
-                            nombreInput.value = data.nombre;
-                            nombreInput.style.backgroundColor = "#e8f4fd";
-                        } else {
-                            nombreInput.placeholder = "No encontrado, ingrese manual";
-                            nombreInput.style.backgroundColor = "white";
-                        }
-                    } catch (e) {
-                        nombreInput.placeholder = originalPlaceholder;
-                    }
+                        if (data.nombre) document.getElementById('clienteNombre').value = data.nombre;
+                    } catch (e) { console.log("Error RUC"); }
                 }
             });
 
-            // 3. IA / OCR (Igual que antes pero optimizado)
+            // IA OCR
             const fileInput = document.getElementById('fileInput');
-            const fileNameDisplay = document.getElementById('fileName');
-
             fileInput.onchange = function() {
                 if (this.files && this.files[0]) {
                     const reader = new FileReader();
-                    fileNameDisplay.textContent = "⌛ IA analizando factura...";
+                    document.getElementById('fileName').textContent = "⌛ IA analizando...";
                     reader.onload = async function(e) {
                         try {
                             const res = await fetch(API_URL, {
@@ -206,46 +199,5 @@
                                 if(result.ruc) document.getElementById('clienteRuc').value = result.ruc;
                                 if(result.monto) document.getElementById('montoVenta').value = new Intl.NumberFormat('de-DE').format(result.monto);
                                 if(result.nro) document.getElementById('nroComprobante').value = result.nro;
-                                fileNameDisplay.textContent = "✅ ¡Datos extraídos!";
-                                // Disparar búsqueda de nombre tras OCR
+                                document.getElementById('fileName').textContent = "✅ Lectura exitosa";
                                 document.getElementById('clienteRuc').dispatchEvent(new Event('blur'));
-                            }
-                        } catch (err) {
-                            fileNameDisplay.textContent = "✅ Imagen lista (Carga manual).";
-                        }
-                    };
-                    reader.readAsDataURL(this.files[0]);
-                }
-            };
-
-            // 4. Envío de Datos
-            const formVenta = document.getElementById('formVenta');
-            formVenta.onsubmit = async (e) => {
-                e.preventDefault();
-                const submitBtn = document.getElementById('submitVenta');
-                submitBtn.disabled = true;
-                submitBtn.textContent = "Guardando...";
-
-                const rowData = [
-                    "VNT-"+Date.now(), new Date().toLocaleDateString(), 
-                    document.getElementById('nroComprobante').value, document.getElementById('clienteNombre').value, 
-                    document.getElementById('clienteRuc').value, 0, 0, 
-                    document.getElementById('montoVenta').value.replace(/\./g, ""), "₲", "Efectivo", "Cobrado", ""
-                ];
-
-                try {
-                    await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ sheetName: "VENTAS", rowData: rowData }) });
-                    alert("¡Venta Registrada!");
-                    modalVenta.classList.remove('active');
-                    formVenta.reset();
-                } catch (err) {
-                    alert("Error al guardar");
-                } finally {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = "Registrar Operación";
-                }
-            };
-        });
-    </script>
-</body>
-</html>
