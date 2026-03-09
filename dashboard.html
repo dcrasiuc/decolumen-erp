@@ -5,36 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Decolumen ERP - Dashboard</title>
     <style>
-        /* --- ESTILOS DE TU CAPTURA --- */
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        /* ESTILOS DE TU INTERFAZ */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
         body { display: flex; height: 100vh; background-color: #f4f7f6; overflow: hidden; }
         
-        .sidebar { width: 250px; background-color: #176894; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar { width: 250px; background-color: #176894; color: white; display: flex; flex-direction: column; }
         .logo-area { padding: 25px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: bold; font-size: 22px; }
         .logo-area span { color: #F6B221; }
+        
         .nav-menu { flex-grow: 1; padding: 20px 0; }
-        .nav-item { padding: 15px 25px; display: flex; align-items: center; color: white; text-decoration: none; font-size: 14px; cursor: pointer; border-left: 4px solid transparent; }
+        .nav-item { padding: 15px 25px; display: block; color: white; text-decoration: none; font-size: 14px; cursor: pointer; border-left: 4px solid transparent; }
         .nav-item:hover, .nav-item.active { background-color: rgba(255,255,255,0.1); border-left-color: #F6B221; }
-        .logout-btn { padding: 15px 25px; background-color: #125275; color: white; text-align: center; cursor: pointer; border-top: 1px solid rgba(255,255,255,0.1); }
 
         .main-content { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; }
         .top-header { background-color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .workspace { padding: 30px; }
-        .section-title { margin-bottom: 25px; color: #333; font-size: 18px; font-weight: bold; }
-
-        /* Grid de 4 Botones */
+        
+        /* GRID DE ACCIONES */
         .action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
-        .action-card { background: white; border-radius: 12px; padding: 25px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); cursor: pointer; border: 1px solid #eee; transition: 0.3s; }
+        .action-card { background: white; border-radius: 12px; padding: 30px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); cursor: pointer; border: 1px solid #eee; transition: 0.3s; }
         .action-card:hover { transform: translateY(-5px); border-color: #F6B221; }
-        .action-icon { font-size: 35px; margin-bottom: 10px; display: block; }
-        .action-card h3 { color: #176894; font-size: 16px; font-weight: bold; }
+        .action-icon { font-size: 40px; margin-bottom: 10px; display: block; }
+        .action-card h3 { color: #176894; font-size: 16px; }
 
-        /* Modales */
+        /* MODALES */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
         .modal-overlay.active { display: flex; }
         .modal-content { background: white; padding: 30px; border-radius: 15px; width: 95%; max-width: 600px; max-height: 90vh; overflow-y: auto; position: relative; }
         .close-btn { position: absolute; top: 15px; right: 20px; font-size: 28px; cursor: pointer; color: #999; }
 
+        /* FORMULARIOS */
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #555; }
         .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
@@ -46,10 +46,7 @@
         @media (max-width: 768px) {
             body { flex-direction: column; }
             .sidebar { width: 100%; height: auto; flex-direction: row; }
-            .nav-menu { display: flex; overflow-x: auto; padding: 0; }
-            .nav-item { padding: 10px 15px; white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; }
-            .nav-item.active { border-bottom-color: #F6B221; }
-            .top-header { display: none; }
+            .nav-menu { display: flex; overflow-x: auto; }
             .action-grid { grid-template-columns: 1fr 1fr; }
         }
     </style>
@@ -60,37 +57,35 @@
         <div class="logo-area">DECO<span>LUMEN</span></div>
         <div class="nav-menu">
             <div class="nav-item active">📊 Inicio / Dashboard</div>
-            <div class="nav-item">🛒 Ventas y Cobros</div>
-            <div class="nav-item">📦 Compras y Gastos</div>
-            <div class="nav-item">💸 Movimientos Cajas</div>
-            <div class="nav-item">🏦 Bancos y Cheques</div>
-            <div class="nav-item">📈 Reportes Z</div>
+            <div class="nav-item">🛒 Ventas</div>
+            <div class="nav-item">📦 Stock</div>
+            <div class="nav-item">💸 Cajas</div>
         </div>
-        <div class="logout-btn" onclick="window.location.href='index.html'">Cerrar Sesión</div>
+        <div style="padding: 15px; text-align: center; font-size: 12px; cursor: pointer;" onclick="window.location.href='index.html'">Cerrar Sesión</div>
     </div>
 
     <div class="main-content">
         <div class="top-header">
-            <div style="font-weight: bold; color: #176894;">Resumen Operativo</div>
-            <div style="font-size: 14px;">👤 Administrador</div>
+            <div style="font-weight: bold; color: #176894;">Panel de Gestión</div>
+            <div>👤 Admin</div>
         </div>
 
         <div class="workspace">
-            <h2 class="section-title">Acciones Rápidas</h2>
+            <h2 style="margin-bottom: 20px;">Acciones Rápidas</h2>
             <div class="action-grid">
-                <div class="action-card" id="btnVenta">
+                <div class="action-card" id="cardVenta">
                     <span class="action-icon">💵</span>
                     <h3>Nueva Venta</h3>
                 </div>
-                <div class="action-card" id="btnTransfer">
+                <div class="action-card" id="cardTransfer">
                     <span class="action-icon">🔄</span>
                     <h3>Transferencia</h3>
                 </div>
-                <div class="action-card" id="btnGasto">
+                <div class="action-card" id="cardGasto">
                     <span class="action-icon">🧾</span>
                     <h3>Registrar Gasto</h3>
                 </div>
-                <div class="action-card" id="btnCierre">
+                <div class="action-card" id="cardCierre">
                     <span class="action-icon">🔒</span>
                     <h3>Cierre Caja</h3>
                 </div>
@@ -101,66 +96,65 @@
     <div id="modalVenta" class="modal-overlay">
         <div class="modal-content">
             <span class="close-btn" id="closeVenta">&times;</span>
-            <h3 style="color:#176894; margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:10px;">🛒 Registrar Venta</h3>
+            <h3 style="margin-bottom: 20px; color: #176894; border-bottom: 1px solid #eee; padding-bottom: 10px;">🛒 Registrar Venta</h3>
             <form id="formVenta">
                 <div class="form-row">
-                    <div class="form-group"><label>Condición</label><select id="condVenta"><option value="Contado">Contado</option><option value="Credito">Crédito</option></select></div>
                     <div class="form-group"><label>Factura N°</label><input type="text" id="nroFact" required placeholder="001-001-0000000"></div>
                 </div>
                 <div class="form-row">
                     <div class="form-group"><label>RUC Cliente</label><input type="text" id="rucCli" required></div>
                     <div class="form-group"><label>Razón Social</label><input type="text" id="nomCli" required></div>
                 </div>
-                <div class="form-group"><label>Total Gs.</label><input type="text" id="montoGs" required style="font-size:18px; font-weight:bold; text-align:right;"></div>
+                <div class="form-group"><label>Total Gs.</label><input type="text" id="montoGs" required style="font-size: 20px; font-weight: bold; text-align: right;"></div>
                 
                 <div class="form-group">
                     <button type="button" class="btn-scan" onclick="document.getElementById('fileInput').click()">📷 Escaneo con IA Gemini</button>
                     <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
-                    <div id="statusIA" style="text-align:center; font-size:12px; color:#176894; font-weight:bold;"></div>
+                    <div id="statusIA" style="text-align: center; font-size: 12px; color: #176894; font-weight: bold; margin-top: 5px;"></div>
                 </div>
-                <button type="submit" class="btn-submit" id="submitVenta">Guardar Operación</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="modalTransfer" class="modal-overlay">
-        <div class="modal-content">
-            <span class="close-btn" id="closeTransfer">&times;</span>
-            <h3 style="color:#176894; margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:10px;">🔄 Nueva Transferencia</h3>
-            <form id="formTransfer">
-                <div class="form-row">
-                    <div class="form-group"><label>Origen</label><select id="origen"><option value="Caja Mostrador">Caja Mostrador</option><option value="Caja Fuerte">Caja Fuerte</option></select></div>
-                    <div class="form-group"><label>Destino</label><select id="destino"><option value="Banco Sudameris">Banco Sudameris</option><option value="Caja Mostrador">Caja Mostrador</option></select></div>
-                </div>
-                <div class="form-group"><label>Monto Gs.</label><input type="text" id="montoTrans" required style="text-align:right;"></div>
-                <button type="submit" class="btn-submit">Realizar Transferencia</button>
+                <button type="submit" class="btn-submit">Guardar Operación</button>
             </form>
         </div>
     </div>
 
     <script>
-        window.addEventListener('load', function() {
+        // ESTO SE EJECUTA CUANDO LA PÁGINA CARGA TOTALMENTE
+        window.onload = function() {
             const API_URL = "https://script.google.com/macros/s/AKfycbz7HMGvoWQcsjh9jdFjZKMtGFJwZLik-yq8bazGjtqtQlqZoPR97V_WDraTjatDUQj1/exec";
             
-            // --- CONTROL DE CLICS (MODALES) ---
+            console.log("Dashboard cargado correctamente.");
+
+            // --- MANEJO DE MODALES ---
             const mVenta = document.getElementById('modalVenta');
-            const mTrans = document.getElementById('modalTransfer');
 
-            document.getElementById('btnVenta').onclick = () => mVenta.classList.add('active');
-            document.getElementById('closeVenta').onclick = () => mVenta.classList.remove('active');
+            // Clic en Nueva Venta
+            document.getElementById('cardVenta').onclick = function() {
+                mVenta.classList.add('active');
+            };
 
-            document.getElementById('btnTransfer').onclick = () => mTrans.classList.add('active');
-            document.getElementById('closeTransfer').onclick = () => mTrans.classList.remove('active');
+            // Clic en Cerrar Venta
+            document.getElementById('closeVenta').onclick = function() {
+                mVenta.classList.remove('active');
+            };
 
-            document.getElementById('btnGasto').onclick = () => alert("Módulo de Gastos en desarrollo");
-            document.getElementById('btnCierre').onclick = () => alert("Módulo de Cierre en desarrollo");
+            // Otros botones (Prueba de funcionamiento)
+            document.getElementById('cardTransfer').onclick = () => alert("Módulo Transferencia activado");
+            document.getElementById('cardGasto').onclick = () => alert("Módulo Gasto activado");
+            document.getElementById('cardCierre').onclick = () => alert("Módulo Cierre activado");
 
-            // --- LÓGICA DE IA ---
+            // --- MÁSCARA DE MILES ---
+            const inputMonto = document.getElementById('montoGs');
+            inputMonto.addEventListener('input', (e) => {
+                let val = e.target.value.replace(/\D/g, "");
+                e.target.value = val ? new Intl.NumberFormat('de-DE').format(val) : "";
+            });
+
+            // --- LÓGICA IA GEMINI ---
             const fileInput = document.getElementById('fileInput');
             fileInput.onchange = function() {
                 if (this.files && this.files[0]) {
                     const reader = new FileReader();
-                    document.getElementById('statusIA').textContent = "⌛ IA analizando factura...";
+                    document.getElementById('statusIA').textContent = "⌛ IA analizando...";
                     reader.onload = async function(e) {
                         try {
                             const res = await fetch(API_URL, {
@@ -174,19 +168,14 @@
                                 document.getElementById('nroFact').value = result.nro || "";
                                 document.getElementById('statusIA').textContent = "✅ Lectura Exitosa";
                             }
-                        } catch (err) { document.getElementById('statusIA').textContent = "❌ Error en conexión"; }
+                        } catch (err) { 
+                            document.getElementById('statusIA').textContent = "❌ Error en IA"; 
+                        }
                     };
                     reader.readAsDataURL(this.files[0]);
                 }
             };
-
-            // --- MÁSCARA DE MILES ---
-            const inputMonto = document.getElementById('montoGs');
-            inputMonto.addEventListener('input', (e) => {
-                let val = e.target.value.replace(/\D/g, "");
-                e.target.value = val ? new Intl.NumberFormat('de-DE').format(val) : "";
-            });
-        });
+        };
     </script>
 </body>
 </html>
