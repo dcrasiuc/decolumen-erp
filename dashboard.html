@@ -3,74 +3,179 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Decolumen ERP - Panel de Control</title>
+    <title>Decolumen ERP - Dashboard</title>
     <style>
-        /* --- ESTILOS PROFESIONALES --- */
+        /* --- ESTILOS DE ALTO IMPACTO --- */
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
-        body { display: flex; height: 100vh; background-color: #f4f7f6; overflow: hidden; }
         
-        .sidebar { width: 250px; background-color: #176894; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
-        .logo-area { padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        body { 
+            display: flex; 
+            height: 100vh; 
+            background-color: #f4f7f6; 
+            overflow: hidden; 
+        }
+
+        /* Menú Lateral (Sidebar) */
+        .sidebar { 
+            width: 250px; 
+            background-color: #176894; 
+            color: white; 
+            display: flex; 
+            flex-direction: column; 
+            flex-shrink: 0; 
+            z-index: 100;
+        }
+        .logo-area { 
+            padding: 25px; 
+            text-align: center; 
+            border-bottom: 1px solid rgba(255,255,255,0.1); 
+            font-weight: bold;
+            font-size: 20px;
+        }
         .logo-area span { color: #F6B221; }
-        
-        .nav-menu { flex-grow: 1; padding: 10px 0; }
-        .nav-item { padding: 12px 25px; display: block; color: white; text-decoration: none; font-size: 14px; transition: 0.2s; border-left: 4px solid transparent; cursor: pointer; }
-        .nav-item:hover, .nav-item.active { background-color: rgba(255,255,255,0.1); border-left-color: #F6B221; }
-        
-        .main-content { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; }
-        .top-header { background-color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .workspace { padding: 20px; }
-        .action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
-        
-        .action-card { background: white; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; border: 1px solid #eaeaea; }
-        .action-card:hover { border-color: #F6B221; transform: translateY(-3px); }
 
-        /* MODALES */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
+        .nav-menu { flex-grow: 1; padding: 20px 0; }
+        .nav-item { 
+            padding: 15px 25px; 
+            display: flex; 
+            align-items: center;
+            color: white; 
+            text-decoration: none; 
+            font-size: 15px; 
+            cursor: pointer;
+            transition: 0.3s;
+            border-left: 4px solid transparent;
+        }
+        .nav-item:hover, .nav-item.active { 
+            background-color: rgba(255,255,255,0.1); 
+            border-left-color: #F6B221; 
+        }
+        .nav-icon { margin-right: 15px; font-size: 18px; }
+
+        /* Contenido Principal */
+        .main-content { 
+            flex-grow: 1; 
+            display: flex; 
+            flex-direction: column; 
+            overflow-y: auto; 
+        }
+        .top-header { 
+            background-color: white; 
+            padding: 15px 30px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+        }
+
+        /* Botones de Acción (El Grid) */
+        .workspace { padding: 30px; }
+        .section-title { margin-bottom: 25px; color: #333; font-size: 20px; font-weight: bold; }
+        
+        .action-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+            gap: 20px; 
+        }
+
+        .action-card { 
+            background: white; 
+            border-radius: 12px; 
+            padding: 30px; 
+            text-align: center; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+            cursor: pointer; 
+            border: 1px solid #eee;
+            transition: all 0.3s ease;
+        }
+        .action-card:hover { 
+            transform: translateY(-5px); 
+            border-color: #F6B221; 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+        }
+        .action-card i { 
+            font-size: 40px; 
+            display: block; 
+            margin-bottom: 15px; 
+        }
+
+        /* Modales */
+        .modal-overlay { 
+            position: fixed; 
+            top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.6); 
+            display: none; 
+            justify-content: center; 
+            align-items: center; 
+            z-index: 1000; 
+        }
         .modal-overlay.active { display: flex; }
-        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 95%; max-width: 600px; max-height: 95vh; overflow-y: auto; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        
-        .form-group { margin-bottom: 12px; }
-        .form-group label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 13px; color: #555; }
-        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
-        .form-row { display: flex; gap: 10px; }
-        .form-row .form-group { flex: 1; }
-        
-        .btn-submit { width: 100%; padding: 12px; background-color: #F6B221; color: #333; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        .btn-scan { width: 100%; padding: 10px; border: 1px dashed #176894; background: #e8f4fd; color: #176894; cursor: pointer; border-radius: 6px; font-weight: bold; }
+        .modal-content { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 15px; 
+            width: 95%; 
+            max-width: 650px; 
+            max-height: 90vh; 
+            overflow-y: auto; 
+        }
 
+        /* Estilos móviles */
         @media (max-width: 768px) {
             body { flex-direction: column; }
             .sidebar { width: 100%; height: auto; flex-direction: row; }
-            .nav-menu { display: flex; overflow-x: auto; }
-            .nav-item { padding: 10px 15px; border-left: none; border-bottom: 3px solid transparent; }
+            .nav-menu { display: flex; overflow-x: auto; padding: 0; }
+            .nav-item { padding: 12px 20px; white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; }
             .nav-item.active { border-bottom-color: #F6B221; }
-            .top-header { display: none; }
+            .logout-btn { display: none; }
+            .workspace { padding: 20px; }
+            .action-grid { grid-template-columns: 1fr 1fr; }
         }
+
+        /* Formularios */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; font-size: 13px; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+        .form-row { display: flex; gap: 15px; }
+        .form-row .form-group { flex: 1; }
+        .btn-submit { width: 100%; padding: 15px; background: #F6B221; color: #333; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        .btn-scan { width: 100%; padding: 12px; border: 2px dashed #176894; background: #f0f8ff; color: #176894; font-weight: bold; cursor: pointer; border-radius: 8px; margin-bottom: 15px; }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
-        <div class="logo-area"><h2>DECO<span>LUMEN</span></h2></div>
+        <div class="logo-area">DECO<span>LUMEN</span></div>
         <div class="nav-menu">
-            <div class="nav-item active">📊 Inicio</div>
-            <div class="nav-item">🛒 Ventas</div>
+            <div class="nav-item active"><span class="nav-icon">📊</span> Inicio</div>
+            <div class="nav-item"><span class="nav-icon">🛒</span> Ventas</div>
+            <div class="nav-item"><span class="nav-icon">📦</span> Stock</div>
+            <div class="nav-item"><span class="nav-icon">👥</span> Clientes</div>
         </div>
+        <div style="padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; cursor: pointer;" onclick="window.location.href='index.html'">Cerrar Sesión</div>
     </div>
 
     <div class="main-content">
         <div class="top-header">
-            <div class="header-title">Panel Administrativo</div>
-            <div class="user-info">👤 Admin</div>
+            <div style="font-weight: bold; color: #176894;">Panel de Gestión</div>
+            <div>👤 Administrador</div>
         </div>
 
         <div class="workspace">
+            <h2 class="section-title">Acciones Principales</h2>
+            
             <div class="action-grid">
                 <div class="action-card" id="btnVenta">
-                    <span style="font-size:30px;">💵</span>
+                    <i>💵</i>
                     <h3>Nueva Venta</h3>
+                    <p style="color: #888; font-size: 12px; margin-top: 5px;">Registrar ingresos y facturas</p>
+                </div>
+
+                <div class="action-card" id="btnTransferencia">
+                    <i>🔄</i>
+                    <h3>Transferencia</h3>
+                    <p style="color: #888; font-size: 12px; margin-top: 5px;">Mover dinero entre cajas</p>
                 </div>
             </div>
         </div>
@@ -78,205 +183,20 @@
 
     <div id="modalVenta" class="modal-overlay">
         <div class="modal-content">
-            <div class="modal-header">
-                <h3>🛒 Registrar Venta</h3>
-                <span id="closeVentaModal" style="cursor:pointer; font-size:24px;">&times;</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                <h2 style="color: #176894;">🛒 Nueva Operación</h2>
+                <span id="closeVentaModal" style="cursor: pointer; font-size: 30px; color: #999;">&times;</span>
             </div>
-            
+
             <form id="formVenta">
                 <div class="form-row">
                     <div class="form-group">
                         <label>Condición</label>
                         <select id="condicionVenta">
                             <option value="Contado">Contado</option>
-                            <option value="Credito">Crédito (Saldo)</option>
+                            <option value="Credito">Crédito</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>N° Factura</label>
-                        <input type="text" id="nroComprobante" required placeholder="001-001-0000000">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>RUC Cliente</label>
-                        <input type="text" id="clienteRuc" required placeholder="RUC">
-                    </div>
-                    <div class="form-group">
-                        <label>Razón Social</label>
-                        <input type="text" id="clienteNombre" required placeholder="Nombre">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Total Gs.</label>
-                    <input type="text" id="montoVenta" required style="text-align: right; font-weight: bold; font-size: 18px; color: #176894;">
-                </div>
-
-                <div id="seccionCobro">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Medio de Pago</label>
-                            <select id="medioPago">
-                                <option value="Efectivo">Efectivo</option>
-                                <option value="Cheque">Cheque</option>
-                                <option value="Tarjeta POS">Tarjeta POS</option>
-                                <option value="Transferencia">Transferencia</option>
-                                <option value="Giro/Otros">Giro / Otros</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Caja/Banco Destino</label>
-                            <select id="cajaDestino">
-                                <option value="Caja Mostrador">Caja Mostrador</option>
-                                <option value="Banco Sudameris">Banco Sudameris</option>
-                                <option value="Caja Fuerte">Caja Fuerte</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <button type="button" class="btn-scan" onclick="document.getElementById('fileInput').click()">📷 Escanear Factura</button>
-                    <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
-                    <div id="fileName" style="font-size: 11px; color: #176894; text-align: center; font-weight: bold;"></div>
-                </div>
-
-                <button type="submit" class="btn-submit" id="submitVenta">Registrar Operación</button>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        window.addEventListener('load', function() {
-            const API_URL = "https://script.google.com/macros/s/AKfycbz7HMGvoWQcsjh9jdFjZKMtGFJwZLik-yq8bazGjtqtQlqZoPR97V_WDraTjatDUQj1/exec";
-            
-            const modal = document.getElementById('modalVenta');
-            const condicion = document.getElementById('condicionVenta');
-            const seccionCobro = document.getElementById('seccionCobro');
-
-            document.getElementById('btnVenta').onclick = () => modal.classList.add('active');
-            document.getElementById('closeVentaModal').onclick = () => modal.classList.remove('active');
-
-            condicion.onchange = () => {
-                seccionCobro.style.display = (condicion.value === "Credito") ? "none" : "block";
-            };
-
-            const inputMonto = document.getElementById('montoVenta');
-            inputMonto.addEventListener('input', (e) => {
-                let val = e.target.value.replace(/\D/g, "");
-                if (val === "") { e.target.value = ""; return; }
-                e.target.value = new Intl.NumberFormat('de-DE').format(val);
-            });
-
-            // Buscar RUC
-            document.getElementById('clienteRuc').addEventListener('blur', async function() {
-                const ruc = this.value.trim();
-                if (ruc.length > 5) {
-                    try {
-                        const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "buscarRUC", ruc: ruc }) });
-                        const data = await res.json();
-                        if (data.nombre) document.getElementById('clienteNombre').value = data.nombre;
-                    } catch (e) { console.log("Error RUC"); }
-                }
-            });
-
-            // IA Gemini OCR
-            const fileInput = document.getElementById('fileInput');
-            fileInput.onchange = function() {
-                if (this.files && this.files[0]) {
-                    const reader = new FileReader();
-                    document.getElementById('fileName').textContent = "⌛ IA analizando...";
-                    reader.onload = async function(e) {
-                        try {
-                            const res = await fetch(API_URL, {
-                                method: 'POST',
-                                body: JSON.stringify({ action: "leerFactura", image: e.target.result })
-                            });
-                            const result = await res.json();
-                            if(result.success) {
-                                if(result.ruc) document.getElementById('clienteRuc').value = result.ruc;
-                                if(result.monto) document.getElementById('montoVenta').value = new Intl.NumberFormat('de-DE').format(result.monto);
-                                if(result.nro) document.getElementById('nroComprobante').value = result.nro;
-                                document.getElementById('fileName').textContent = "✅ Lectura exitosa";
-                                document.getElementById('clienteRuc').dispatchEvent(new Event('blur'));
-                            }
-                        } catch (err) { 
-                            console.error(err);
-                            document.getElementById('fileName').textContent = "❌ Error en IA"; 
-                        }
-                    };
-                    reader.readAsDataURL(this.files[0]);
-                }
-            };
-
-            // REGISTRAR OPERACIÓN FINAL
-            document.getElementById('formVenta').onsubmit = async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('submitVenta');
-                btn.disabled = true;
-                btn.textContent = "Procesando...";
-
-                const montoFinal = inputMonto.value.replace(/\./g, "");
-                
-                // 1. Datos para hoja VENTAS
-                const venta = {
-                    sheetName: "VENTAS",
-                    rowData: [
-                        "VNT-" + Date.now(), 
-                        new Date().toLocaleDateString(),
-                        document.getElementById('nroComprobante').value,
-                        document.getElementById('clienteNombre').value,
-                        document.getElementById('clienteRuc').value,
-                        Math.round(montoFinal/1.1), 
-                        Math.round(montoFinal/11), 
-                        montoFinal,
-                        "₲", 
-                        (condicion.value === "Contado" ? document.getElementById('medioPago').value : "CRÉDITO"),
-                        (condicion.value === "Contado" ? "Cobrado" : "Pendiente"), 
-                        ""
-                    ]
-                };
-
-                try {
-                    // Guardar Venta
-                    await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(venta) });
-                    
-                    // 2. Si es contado, guardar Movimiento de Caja
-                    if (condicion.value === "Contado") {
-                        const mov = {
-                            sheetName: "MOVIMIENTOS",
-                            rowData: [
-                                "MOV-" + Date.now(), 
-                                venta.rowData[0], 
-                                new Date().toLocaleString(),
-                                "Admin", 
-                                document.getElementById('cajaDestino').value, 
-                                "Venta", 
-                                "Ingreso",
-                                montoFinal, 
-                                "₲", 
-                                1, 
-                                "Completado", 
-                                "Fact " + venta.rowData[2]
-                            ]
-                        };
-                        await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(mov) });
-                    }
-
-                    alert("¡Registro completado con éxito!");
-                    modal.classList.remove('active');
-                    e.target.reset();
-                    document.getElementById('fileName').textContent = "";
-                } catch (err) {
-                    alert("Error de conexión con el servidor");
-                } finally {
-                    btn.disabled = false;
-                    btn.textContent = "Registrar Operación";
-                }
-            };
-        });
-    </script>
-</body>
-</html>
+                        <label>Factura N°</label>
+                        <input type="text" id="nroComprobante
