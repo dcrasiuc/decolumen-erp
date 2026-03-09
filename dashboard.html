@@ -192,119 +192,127 @@
 
     <script>
         window.addEventListener('load', function() {
+            // URL de tu Google Apps Script
             const API_URL = "https://script.google.com/macros/s/AKfycbz7HMGvoWQcsjh9jdFjZKMtGFJwZLik-yq8bazGjtqtQlqZoPR97V_WDraTjatDUQj1/exec";
             
             let base64Image = "";
 
-            // 1. Modales
+            // 1. Control de Modales (Apertura y Cierre)
             const modalVenta = document.getElementById('modalVenta');
             const modalTransfer = document.getElementById('modalTransfer');
+            const btnVenta = document.getElementById('btnVenta');
+            const btnTransfer = document.getElementById('btnTransferencia');
 
-            document.getElementById('btnVenta').onclick = () => modalVenta.classList.add('active');
+            if(btnVenta) btnVenta.onclick = () => modalVenta.classList.add('active');
+            if(btnTransfer) btnTransfer.onclick = () => modalTransfer.classList.add('active');
+            
             document.getElementById('closeVentaModal').onclick = () => modalVenta.classList.remove('active');
-            document.getElementById('btnTransferencia').onclick = () => modalTransfer.classList.add('active');
             document.getElementById('closeTransferModal').onclick = () => modalTransfer.classList.remove('active');
 
-            // 2. Máscara de miles
+            // 2. Máscara de miles para Gs.
             const inputMonto = document.getElementById('montoVenta');
-            inputMonto.addEventListener('input', (e) => {
-                let val = e.target.value.replace(/\D/g, "");
-                if (val === "") { e.target.value = ""; return; }
-                e.target.value = new Intl.NumberFormat('de-DE').format(val);
-            });
+            if(inputMonto) {
+                inputMonto.addEventListener('input', (e) => {
+                    let val = e.target.value.replace(/\D/g, "");
+                    if (val === "") { e.target.value = ""; return; }
+                    e.target.value = new Intl.NumberFormat('de-DE').format(val);
+                });
+            }
 
             // 3. Condición de venta
             const condicion = document.getElementById('condicionVenta');
             const seccionCobro = document.getElementById('seccionCobro');
-            condicion.onchange = () => {
-                seccionCobro.style.display = (condicion.value === "Credito") ? "none" : "block";
-            };
+            if(condicion) {
+                condicion.onchange = () => {
+                    seccionCobro.style.display = (condicion.value === "Credito") ? "none" : "block";
+                };
+            }
 
-            // 4. Lógica de Cámara / OCR
+            // 4. Lógica de Cámara e IA (OCR) - CORREGIDA
             const fileInput = document.getElementById('fileInput');
             const fileNameDisplay = document.getElementById('fileName');
 
-            fileInput.onchange = function() {
-                if (this.files && this.files[0]) {
-                    const reader = new FileReader();
-                    fileNameDisplay.textContent = "⌛ Leyendo factura (IA)...";
-                    
-                    reader.onload = async function(e) {
-                        base64Image = e.target.result;
-                        try {
-                            ctry {
-                    // Petición optimizada para evitar bloqueos de seguridad
-                    const response = await fetch(API_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({ 
-                            action: "leerFactura", 
-                            image: base64Image 
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if(result.success) {
-                        if(result.ruc) document.getElementById('clienteRuc').value = result.ruc;
-                        if(result.monto) document.getElementById('montoVenta').value = new Intl.NumberFormat('de-DE').format(result.monto);
-                        if(result.nro) document.getElementById('nroComprobante').value = result.nro;
-                        fileNameDisplay.textContent = "✅ Datos cargados correctamente.";
-                    } else {
-                        fileNameDisplay.textContent = "⚠️ Foto capturada (Carga manual).";
+            if(fileInput) {
+                fileInput.onchange = function() {
+                    if (this.files && this.files[0]) {
+                        const reader = new FileReader();
+                        fileNameDisplay.textContent = "⌛ Leyendo factura (IA)...";
+                        
+                        reader.onload = async function(e) {
+                            base64Image = e.target.result;
+                            try {
+                                const response = await fetch(API_URL, {
+                                    method: 'POST',
+                                    body: JSON.stringify({ action: "leerFactura", image: base64Image })
+                                });
+                                
+                                const result = await response.json();
+                                
+                                if(result.success) {
+                                    if(result.ruc) document.getElementById('clienteRuc').value = result.ruc;
+                                    if(result.monto) document.getElementById('montoVenta').value = new Intl.NumberFormat('de-DE').format(result.monto);
+                                    if(result.nro) document.getElementById('nroComprobante').value = result.nro;
+                                    fileNameDisplay.textContent = "✅ Datos cargados con éxito.";
+                                } else {
+                                    fileNameDisplay.textContent = "⚠️ Foto lista (Carga manual).";
+                                }
+                            } catch (err) {
+                                console.error("Error IA:", err);
+                                fileNameDisplay.textContent = "✅ Imagen lista para subir.";
+                            }
+                        };
+                        reader.readAsDataURL(this.files[0]);
                     }
-                } catch (err) {
-                    console.error("Error de comunicación:", err);
-                    fileNameDisplay.textContent = "✅ Foto lista. Complete los campos.";
-                }
-            }; // <--- ESTE ES EL FINAL DEL READER.ONLOAD
-            reader.readAsDataURL(this.files[0]);
-        }
-    }; // <--- ESTE ES EL FINAL DEL FILEINPUT.ONCHANGE
+                };
+            }
 
-            // 5. Envío de Venta
+            // 5. Envío Final a Google Sheets
             const formVenta = document.getElementById('formVenta');
-            formVenta.onsubmit = async (e) => {
-                e.preventDefault();
-                const submitBtn = document.getElementById('submitVenta');
-                const total = inputMonto.value.replace(/\./g, "");
-                
-                submitBtn.disabled = true;
-                submitBtn.textContent = "Guardando...";
+            if(formVenta) {
+                formVenta.onsubmit = async (e) => {
+                    e.preventDefault();
+                    const submitBtn = document.getElementById('submitVenta');
+                    const totalRaw = inputMonto.value.replace(/\./g, "");
+                    
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = "Guardando...";
 
-                const filas = [{
-                    sheetName: "VENTAS",
-                    rowData: [
-                        "VNT-"+Date.now(), new Date().toLocaleDateString(), 
-                        document.getElementById('nroComprobante').value, document.getElementById('clienteNombre').value, 
-                        document.getElementById('clienteRuc').value, Math.round(total/1.1), Math.round(total/11), 
-                        total, "₲", document.getElementById('medioPago').value, 
-                        (condicion.value === "Contado" ? "Cobrado" : "Pendiente"), base64Image
-                    ]
-                }];
+                    const filas = [{
+                        sheetName: "VENTAS",
+                        rowData: [
+                            "VNT-"+Date.now(), new Date().toLocaleDateString(), 
+                            document.getElementById('nroComprobante').value, document.getElementById('clienteNombre').value, 
+                            document.getElementById('clienteRuc').value, Math.round(totalRaw/1.1), Math.round(totalRaw/11), 
+                            totalRaw, "₲", document.getElementById('medioPago').value, 
+                            (condicion.value === "Contado" ? "Cobrado" : "Pendiente"), base64Image
+                        ]
+                    }];
 
-                if(condicion.value === "Contado" && document.getElementById('medioPago').value === "Efectivo") {
-                    filas.push({
-                        sheetName: "MOVIMIENTOS",
-                        rowData: ["MOV-"+Date.now(), "VNT-"+Date.now(), new Date().toLocaleString(), "Admin", "Caja Mostrador", "Venta", "Ingreso", total, "₲", 1, "Completado", "Venta Fact " + document.getElementById('nroComprobante').value]
-                    });
-                }
-
-                try {
-                    for (let f of filas) {
-                        await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(f) });
+                    if(condicion.value === "Contado" && document.getElementById('medioPago').value === "Efectivo") {
+                        filas.push({
+                            sheetName: "MOVIMIENTOS",
+                            rowData: ["MOV-"+Date.now(), "VNT-"+Date.now(), new Date().toLocaleString(), "Admin", "Caja Mostrador", "Venta", "Ingreso", totalRaw, "₲", 1, "Completado", "Venta Fact " + document.getElementById('nroComprobante').value]
+                        });
                     }
-                    alert("¡Venta Registrada!");
-                    modalVenta.classList.remove('active');
-                    formVenta.reset();
-                    base64Image = "";
-                    fileNameDisplay.textContent = "";
-                } catch (err) {
-                    alert("Error de conexión");
-                } finally {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = "Registrar Operación";
-                }
-            };
+
+                    try {
+                        for (let f of filas) {
+                            // Cambiado a modo cors para permitir respuesta de lectura
+                            await fetch(API_URL, { method: 'POST', body: JSON.stringify(f) });
+                        }
+                        alert("¡Venta Registrada!");
+                        modalVenta.classList.remove('active');
+                        formVenta.reset();
+                        base64Image = "";
+                        fileNameDisplay.textContent = "";
+                    } catch (err) {
+                        alert("Error de conexión");
+                    } finally {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = "Registrar Operación";
+                    }
+                };
+            }
         });
     </script>
 </body>
