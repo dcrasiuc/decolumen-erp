@@ -228,44 +228,52 @@
                 };
             }
 
-            // 4. Lógica de Cámara e IA (OCR) - CORREGIDA
-            const fileInput = document.getElementById('fileInput');
-            const fileNameDisplay = document.getElementById('fileName');
+            // 4. Lógica de Cámara e IA (Versión para GitHub Pages)
+    const fileInput = document.getElementById('fileInput');
+    const fileNameDisplay = document.getElementById('fileName');
 
-            if(fileInput) {
-                fileInput.onchange = function() {
-                    if (this.files && this.files[0]) {
-                        const reader = new FileReader();
-                        fileNameDisplay.textContent = "⌛ Leyendo factura (IA)...";
+    if(fileInput) {
+        fileInput.onchange = function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                fileNameDisplay.textContent = "⌛ Leyendo factura (IA)...";
+                
+                reader.onload = async function(e) {
+                    base64Image = e.target.result;
+                    try {
+                        // Enviamos la petición como "Simple" para evitar bloqueos
+                        const response = await fetch(API_URL, {
+                            method: 'POST',
+                            headers: {
+                                // Este encabezado es el secreto para que Google no bloquee
+                                'Content-Type': 'text/plain;charset=utf-8', 
+                            },
+                            body: JSON.stringify({ 
+                                action: "leerFactura", 
+                                image: base64Image 
+                            })
+                        });
                         
-                        reader.onload = async function(e) {
-                            base64Image = e.target.result;
-                            try {
-                                const response = await fetch(API_URL, {
-                                    method: 'POST',
-                                    body: JSON.stringify({ action: "leerFactura", image: base64Image })
-                                });
-                                
-                                const result = await response.json();
-				console.log("Lo que la IA leyó realmente:", result.textoCompleto);
-                                
-                                if(result.success) {
-                                    if(result.ruc) document.getElementById('clienteRuc').value = result.ruc;
-                                    if(result.monto) document.getElementById('montoVenta').value = new Intl.NumberFormat('de-DE').format(result.monto);
-                                    if(result.nro) document.getElementById('nroComprobante').value = result.nro;
-                                    fileNameDisplay.textContent = "✅ Datos cargados con éxito.";
-                                } else {
-                                    fileNameDisplay.textContent = "⚠️ Foto lista (Carga manual).";
-                                }
-                            } catch (err) {
-                                console.error("Error IA:", err);
-                                fileNameDisplay.textContent = "✅ Imagen lista para subir.";
-                            }
-                        };
-                        reader.readAsDataURL(this.files[0]);
+                        const result = await response.json();
+                        console.log("IA respondió:", result);
+
+                        if(result.success) {
+                            if(result.ruc) document.getElementById('clienteRuc').value = result.ruc;
+                            if(result.monto) document.getElementById('montoVenta').value = new Intl.NumberFormat('de-DE').format(result.monto);
+                            if(result.nro) document.getElementById('nroComprobante').value = result.nro;
+                            fileNameDisplay.textContent = "✅ Datos cargados correctamente.";
+                        } else {
+                            fileNameDisplay.textContent = "⚠️ No se detectaron datos.";
+                        }
+                    } catch (err) {
+                        console.error("Error de conexión:", err);
+                        fileNameDisplay.textContent = "✅ Foto capturada. Complete manual.";
                     }
                 };
+                reader.readAsDataURL(this.files[0]);
             }
+        };
+    }
 
             // 5. Envío Final a Google Sheets
             const formVenta = document.getElementById('formVenta');
@@ -318,3 +326,4 @@
     </script>
 </body>
 </html>
+
