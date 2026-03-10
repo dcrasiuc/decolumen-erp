@@ -55,8 +55,9 @@
 </div>
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    // ACTUALIZADO A LA VERSIÓN 11.6.1 PARA COMPATIBILIDAD CON EL DASHBOARD
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
     // Credenciales oficiales
     const firebaseConfig = {
@@ -98,8 +99,9 @@
                 loginBtn.style.color = "white";
                 
                 setTimeout(() => {
-    window.location.href = "dashboard.html";
-}, 800);
+                    // Redirige al Dashboard
+                    window.location.href = "dashboard.html";
+                }, 800);
             })
             .catch((error) => {
                 // Si la contraseña está mal o el usuario no existe
