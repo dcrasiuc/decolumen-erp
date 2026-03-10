@@ -78,6 +78,8 @@
             auth = getAuth(app);
             db = getFirestore(app);
             isCloudActive = true;
+            // Prevenir errores de conexión restringiendo reintentos iniciales en Canvas
+            disableNetwork(db).catch(console.warn);
         } catch (error) { console.warn("Ejecutando en Modo Local Seguro"); }
 
         const formatGs = (num) => new Intl.NumberFormat('de-DE').format(Math.round(num));
@@ -914,7 +916,7 @@
                                     renderizarApp();
                                 }, (error) => {
                                     console.warn("Deshabilitando red de Firestore por entorno restringido.");
-                                    disableNetwork(db);
+                                    disableNetwork(db).catch(console.warn);
                                     renderizarApp();
                                 });
                             } catch (e) {
