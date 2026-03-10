@@ -99,8 +99,16 @@
                 loginBtn.style.color = "white";
                 
                 setTimeout(() => {
-                    // Redirige al Dashboard
-                    window.location.href = "dashboard.html";
+                    try {
+                        // Redirige al Dashboard
+                        // Usamos try-catch porque en entornos de prueba en vivo (como Canvas/iFrames con URL 'blob:')
+                        // las redirecciones relativas fallan lanzando un SyntaxError. 
+                        // En tu hosting final (ej. Vercel) funcionará perfectamente.
+                        window.location.href = "dashboard.html";
+                    } catch (err) {
+                        console.log("Simulando redirección a 'dashboard.html' en el entorno de prueba.");
+                        loginBtn.textContent = "Redirección simulada (Modo Prueba)";
+                    }
                 }, 800);
             })
             .catch((error) => {
