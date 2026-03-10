@@ -21,7 +21,6 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ⚠️ IMPORTANTE: PEGA AQUÍ TU NUEVA URL DE GOOGLE SCRIPT
         const API_URL = "https://script.google.com/macros/s/AKfycbz7HMGvoWQcsjh9jdFjZKMtGFJwZLik-yq8bazGjtqtQlqZoPR97V_WDraTjatDUQj1/exec";
         
         let currentView = 'dashboard';
@@ -35,8 +34,14 @@
             { id: "local3", nombre: "POS Bancard", categoria: "DIGITAL", comision: 3.5, diasAcreditacion: 2, bancoDestino: "Banco Sudameris Gs." },
             { id: "local4", nombre: "Cartera de Cheques", categoria: "CHEQUES" }
         ];
-        let pendientesCobro = [];
-        let pendientesPago = [];
+        
+        // Ahora la Tesorería arranca con estos datos, pero respeta lo nuevo que cargues
+        let pendientesCobro = [
+            { id: "V001", fecha: "Hoy", nro: "002-002-0000010", nombre: "Cliente Ejemplo S.A.", ruc: "80012345-6", monto: 1500000 }
+        ];
+        let pendientesPago = [
+            { id: "C001", fecha: "Vence Hoy", nro: "001-001-0099887", nombre: "Tracsa", ruc: "800999-0", monto: 1200000 }
+        ];
 
         let db, auth;
         let isCloudActive = false;
@@ -56,7 +61,6 @@
         const parseGs = (str) => parseInt(str.toString().replace(/\D/g, "")) || 0;
         const formatInput = (e) => { let val = e.target.value.replace(/\D/g, ""); e.target.value = val ? formatGs(val) : ""; };
 
-        // Íconos SVG Minimalistas
         const icons = {
             dashboard: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>`,
             tesoreria: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect width="20" height="14" x="2" y="6" rx="2"/><path d="M2 10h20"/><path d="M6 14h.01"/><path d="M10 14h.01"/></svg>`,
@@ -66,7 +70,6 @@
             scan: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>`
         };
 
-        // UI Helpers
         window.showToast = (msg, type = 'success') => {
             const container = document.getElementById('toast-container');
             if(!container) return;
@@ -94,19 +97,12 @@
             } else renderizarApp();
         }
 
-        window.actualizarDatosTesoreria = () => {
-            pendientesCobro = [{ id: "V001", fecha: "Hoy", nro: "002-002-0000010", nombre: "Cliente Ejemplo S.A.", ruc: "80012345-6", monto: 1500000 }];
-            pendientesPago = [{ id: "C001", fecha: "Vence Hoy", nro: "001-001-0099887", nombre: "Tracsa", ruc: "800999-0", monto: 1200000 }];
-            renderizarApp();
-        };
-
         window.renderizarApp = () => {
             const root = document.getElementById('root');
             if (!root) return;
             
             root.innerHTML = `
                 <div class="flex h-screen bg-zinc-50 overflow-hidden text-zinc-900">
-                    <!-- SIDEBAR -->
                     <aside class="w-64 bg-zinc-950 text-zinc-300 flex flex-col border-r border-zinc-800 z-20">
                         <div class="p-8 border-b border-zinc-800/50">
                             <div class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
@@ -131,7 +127,6 @@
                         </div>
                     </aside>
 
-                    <!-- MAIN CONTENT -->
                     <main class="flex-grow flex flex-col overflow-hidden relative">
                         <header class="h-20 bg-white border-b border-zinc-200 flex items-center justify-between px-10 z-10">
                             <h1 class="font-semibold text-zinc-800 text-lg tracking-tight">${tituloVista()}</h1>
@@ -151,7 +146,6 @@
                     </main>
                 </div>
                 ${renderModals()}
-                <!-- Contenedor para Notificaciones Emergentes -->
                 <div id="toast-container" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2"></div>
             `;
             vincularEventos();
@@ -198,11 +192,14 @@
                                 </div>
                                 <span class="bg-zinc-100 text-zinc-700 px-2.5 py-1 rounded text-[10px] font-medium tracking-wide">INGRESOS</span>
                             </div>
-                            <div class="p-2 overflow-y-auto flex-grow">
+                            <div class="p-2 overflow-y-auto flex-grow bg-zinc-50/50">
                                 ${pendientesCobro.map(p => `
-                                    <div class="p-4 mx-2 my-2 rounded-xl border border-zinc-100 flex justify-between items-center group hover:border-zinc-300 transition-all">
+                                    <div class="p-4 mx-2 my-2 rounded-xl border border-zinc-200 flex justify-between items-center group hover:border-zinc-300 transition-all bg-white shadow-sm">
                                         <div><p class="text-[10px] text-zinc-400 font-mono mb-1">${p.nro}</p><p class="font-medium text-sm text-zinc-900">${p.nombre}</p><p class="text-xs text-zinc-500 mt-0.5">${p.fecha}</p></div>
-                                        <div class="text-right"><p class="font-semibold text-zinc-900">${formatGs(p.monto)} ₲</p></div>
+                                        <div class="text-right flex flex-col items-end gap-2">
+                                            <p class="font-semibold text-zinc-900">${formatGs(p.monto)} ₲</p>
+                                            <button onclick="window.showToast('Módulo de cobro (liquidación) en desarrollo para la próxima fase', 'success')" class="bg-zinc-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-semibold hover:bg-zinc-800 transition-colors shadow-sm">Cobrar</button>
+                                        </div>
                                     </div>
                                 `).join('')}
                             </div>
@@ -216,11 +213,14 @@
                                 </div>
                                 <span class="bg-zinc-100 text-zinc-700 px-2.5 py-1 rounded text-[10px] font-medium tracking-wide">EGRESOS</span>
                             </div>
-                            <div class="p-2 overflow-y-auto flex-grow">
+                            <div class="p-2 overflow-y-auto flex-grow bg-zinc-50/50">
                                 ${pendientesPago.map(p => `
-                                    <div class="p-4 mx-2 my-2 rounded-xl border border-zinc-100 flex justify-between items-center group hover:border-zinc-300 transition-all">
+                                    <div class="p-4 mx-2 my-2 rounded-xl border border-zinc-200 flex justify-between items-center group hover:border-zinc-300 transition-all bg-white shadow-sm">
                                         <div><p class="text-[10px] text-zinc-400 font-mono mb-1">${p.nro}</p><p class="font-medium text-sm text-zinc-900">${p.nombre}</p><p class="text-xs text-zinc-500 mt-0.5">Vto: ${p.fecha}</p></div>
-                                        <div class="text-right"><p class="font-semibold text-zinc-900">${formatGs(p.monto)} ₲</p></div>
+                                        <div class="text-right flex flex-col items-end gap-2">
+                                            <p class="font-semibold text-zinc-900">${formatGs(p.monto)} ₲</p>
+                                            <button onclick="window.showToast('Módulo de pago (descuento) en desarrollo para la próxima fase', 'error')" class="bg-red-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-semibold hover:bg-red-700 transition-colors shadow-sm">Pagar</button>
+                                        </div>
                                     </div>
                                 `).join('')}
                             </div>
@@ -447,6 +447,12 @@
 
                     try {
                         await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payloadVenta) });
+                        
+                        // AGREGADO: Cargar dinámicamente al array si es crédito o vendedor
+                        if (userRole === 'vendedor' || cond.value === 'Credito') {
+                            pendientesCobro.push({ id: idVenta, fecha: new Date().toLocaleDateString(), nro: iNro.value, nombre: document.getElementById('v_nom').value, ruc: iRuc.value, monto: mT });
+                        }
+
                         if (userRole === 'admin' && cond.value === 'Contado') {
                             const payloadMov = { action: "guardarMovimiento", idMov: "MOV-"+Date.now(), idVinculo: idVenta, fecha: new Date().toLocaleString(), usuario: "Admin", cuenta: sSub.value, tipoOperacion: "Venta", sentido: "Ingreso", monto: mT, estado: sCat.value === 'CHEQUES' ? "En Cartera" : "Completado", observaciones: "Cobro "+currentTipoDocVenta+" "+iNro.value };
                             await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payloadMov) });
@@ -463,7 +469,7 @@
                                 await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payloadCheque) });
                             }
                         }
-                        window.showToast(userRole === 'admin' && cond.value === 'Contado' ? "Operación guardada y cobrada exitosamente." : "Operación enviada a bandeja de pendientes.");
+                        window.showToast(userRole === 'admin' && cond.value === 'Contado' ? "Operación guardada y cobrada exitosamente." : "Operación enviada a Tesorería.");
                         window.hideModal('modalVenta'); fVenta.reset(); document.getElementById('v_status').innerHTML = "";
                     } catch (err) { window.showToast("Error de conexión al servidor.", "error"); } finally { btn.disabled = false; btn.textContent = userRole === 'admin' ? "Guardar y Liquidar" : "Registrar Venta"; }
                 };
@@ -487,6 +493,12 @@
 
                     try {
                         await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payloadCompra) });
+                        
+                        // AGREGADO: Cargar dinámicamente al array si es crédito
+                        if (cCond.value === 'Credito') {
+                            pendientesPago.push({ id: idCompra, fecha: new Date().toLocaleDateString(), nro: cNro.value, nombre: document.getElementById('c_nom').value, ruc: cRuc.value, monto: mT });
+                        }
+
                         if (userRole === 'admin' && cCond.value === 'Contado') {
                             const payloadMov = { action: "guardarMovimiento", idMov: "GAS-"+Date.now(), idVinculo: idCompra, fecha: new Date().toLocaleString(), usuario: "Admin", cuenta: cSub.value, tipoOperacion: "Compra", sentido: "Egreso", monto: mT, estado: "Completado", observaciones: "Pago " + cConcepto.value };
                             await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payloadMov) });
@@ -498,7 +510,7 @@
             }
         };
 
-        window.setView = (v) => { currentView = v; renderizarApp(); if(v === 'tesoreria') window.actualizarDatosTesoreria(); };
+        window.setView = (v) => { currentView = v; renderizarApp(); };
         window.setRole = (r) => { userRole = r; renderizarApp(); };
         window.showModal = (id) => { const m = document.getElementById(id); if(m) m.style.display = 'flex'; };
         window.hideModal = (id) => { const m = document.getElementById(id); if(m) m.style.display = 'none'; };
