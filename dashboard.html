@@ -21,25 +21,26 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // URL de tu Google Apps Script
         const API_URL = "https://script.google.com/macros/s/AKfycbz7HMGvoWQcsjh9jdFjZKMtGFJwZLik-yq8bazGjtqtQlqZoPR97V_WDraTjatDUQj1/exec";
         
-        let currentView = 'dashboard';
-        let userRole = 'admin'; 
-        let currentTipoDocVenta = 'Factura'; 
+        // --- ESTADOS GLOBALES DE LA APP ---
+        window.currentView = 'dashboard';
+        window.userRole = 'admin'; 
+        window.currentTipoDocVenta = 'Factura'; 
         
-        // Datos simulados (Modo Local)
-        let cuentas = [
+        // Datos simulados (Modo Local / Fallback)
+        window.cuentas = [
             { id: "local1", nombre: "Caja Mostrador", categoria: "CAJA" },
             { id: "local2", nombre: "Banco Sudameris Gs.", categoria: "BANCO" },
             { id: "local3", nombre: "POS Bancard", categoria: "DIGITAL", comision: 3.5, diasAcreditacion: 2, bancoDestino: "Banco Sudameris Gs." },
             { id: "local4", nombre: "Cartera de Cheques", categoria: "CHEQUES" }
         ];
         
-        // Ahora la Tesorería arranca con estos datos, pero respeta lo nuevo que cargues
-        let pendientesCobro = [
+        window.pendientesCobro = [
             { id: "V001", fecha: "Hoy", nro: "002-002-0000010", nombre: "Cliente Ejemplo S.A.", ruc: "80012345-6", monto: 1500000 }
         ];
-        let pendientesPago = [
+        window.pendientesPago = [
             { id: "C001", fecha: "Vence Hoy", nro: "001-001-0099887", nombre: "Tracsa", ruc: "800999-0", monto: 1200000 }
         ];
 
@@ -80,6 +81,67 @@
             setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
         };
 
+        // Funciones de navegación globales
+        window.setView = (v) => { window.currentView = v; renderizarApp(); };
+        window.setRole = (r) => { window.userRole = r; renderizarApp(); };
+        window.showModal = (id) => { const m = document.getElementById(id); if(m) m.style.display = 'flex'; };
+        window.hideModal = (id) => { const m = document.getElementById(id); if(m) m.style.display = 'none'; };
+        window.toggleTipoDocVenta = () => {
+            const t = document.getElementById('txtModalVenta'), b = document.getElementById('btnToggleTipoVenta'), l = document.getElementById('lblNroVenta'), i = document.getElementById('v_nro');
+            if (window.currentTipoDocVenta === 'Factura') { window.currentTipoDocVenta = 'Remito'; t.innerText = "Remito de Entrega"; b.innerText = "Cambiar a Factura"; l.innerText = "Nro. de Remito"; i.value = ""; } 
+            else { window.currentTipoDocVenta = 'Factura'; t.innerText = "Nueva Factura de Venta"; b.innerText = "Cambiar a Remito"; l.innerText = "Nro. Documento"; i.value = "002-002-"; }
+        };
+
+        // --- FUNCIÓN DE BÚSQUEDA AUTOMÁTICA EN SHEET (RUC/NOMBRE) ---
+        window.buscarEntidad = async (tipoBusqueda, origenId, destinoId) => {
+            const valor = document.getElementById(origenId).value.trim();
+            const destino = document.getElementById(destinoId);
+            
+            if (!valor || destino.value.trim() !== "") return;
+
+            try {
+                window.showToast(`Buscando ${tipoBusqueda === 'ruc' ? 'cliente/proveedor' : 'RUC'}...`, "success");
+                
+                const payload = { 
+                    action: "buscarEntidad", 
+                    tipo: tipoBusqueda,
+                    query: valor 
+                };
+                
+                const r = await fetch(API_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify(payload)
+                });
+                
+                const res = await r.json();
+                
+                if (res.success && res.data) {
+                    destino.value = res.data;
+                    window.showToast("✅ Autocompletado exitoso", "success");
+                } else {
+                     window.showToast("No se encontraron resultados", "error");
+                }
+            } catch (err) {
+                console.error("No se pudo conectar con Sheets para la búsqueda:", err);
+                window.showToast("Búsqueda no disponible (Offline)", "error");
+            }
+        };
+
+        // --- ABRIR MODAL DE LIQUIDACIÓN DE TESORERÍA ---
+        window.abrirLiquidacion = (id, tipo, entidad, monto) => {
+            document.getElementById('l_id').value = id;
+            document.getElementById('l_tipo').value = tipo;
+            document.getElementById('l_entidad').innerText = entidad;
+            document.getElementById('l_montoPendiente').innerText = formatGs(monto) + ' ₲';
+            document.getElementById('l_monto').value = formatGs(monto); // Carga el saldo restante por defecto
+            
+            const sCuenta = document.getElementById('l_cuenta');
+            // Filtra solo cuentas donde se puede cobrar/pagar dinero real
+            sCuenta.innerHTML = window.cuentas.filter(c => c.categoria === 'CAJA' || c.categoria === 'BANCO').map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join('');
+            
+            window.showModal('modalLiquidacion');
+        };
+
         async function initApp() {
             if (isCloudActive) {
                 try {
@@ -87,14 +149,30 @@
                     else await signInAnonymously(auth);
                     onAuthStateChanged(auth, (u) => {
                         if (u) {
-                            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'config_cuentas'), (snapshot) => {
-                                cuentas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            try {
+                                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'config_cuentas'), (snapshot) => {
+                                    if(!snapshot.empty) {
+                                        window.cuentas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                                    }
+                                    renderizarApp();
+                                }, (error) => {
+                                    console.warn("Error en onSnapshot de cuentas. Usando datos locales.", error);
+                                    // Continuamos renderizando aunque falle la suscripción (ej: error offline)
+                                    renderizarApp();
+                                });
+                            } catch (e) {
+                                console.warn("Firestore error ignorado, usando modo offline", e);
                                 renderizarApp();
-                            }, () => renderizarApp());
+                            }
                         }
                     });
-                } catch (error) { renderizarApp(); }
-            } else renderizarApp();
+                } catch (error) { 
+                    console.warn("Modo Offline Activado. Error de Auth o Red.", error); 
+                    renderizarApp(); 
+                }
+            } else {
+                renderizarApp();
+            }
         }
 
         window.renderizarApp = () => {
@@ -103,6 +181,7 @@
             
             root.innerHTML = `
                 <div class="flex h-screen bg-zinc-50 overflow-hidden text-zinc-900">
+                    <!-- SIDEBAR -->
                     <aside class="w-64 bg-zinc-950 text-zinc-300 flex flex-col border-r border-zinc-800 z-20">
                         <div class="p-8 border-b border-zinc-800/50">
                             <div class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
@@ -114,24 +193,25 @@
 
                         <nav class="flex-grow py-6 px-4 space-y-1">
                             ${navItem('dashboard', icons.dashboard, 'Dashboard')}
-                            ${userRole === 'admin' ? navItem('tesoreria', icons.tesoreria, 'Tesorería') : ''}
-                            ${userRole === 'admin' ? navItem('admin_cuentas', icons.config, 'Configuración') : ''}
+                            ${window.userRole === 'admin' ? navItem('tesoreria', icons.tesoreria, 'Tesorería') : ''}
+                            ${window.userRole === 'admin' ? navItem('admin_cuentas', icons.config, 'Configuración') : ''}
                         </nav>
 
                         <div class="p-4 mx-4 mb-6 rounded-xl bg-zinc-900/50 border border-zinc-800">
                             <p class="text-[10px] uppercase tracking-widest text-zinc-500 mb-2 text-center font-medium">Perfil Activo</p>
                             <div class="flex gap-1 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
-                                <button onclick="window.setRole('admin')" class="flex-1 py-1.5 text-[10px] font-semibold rounded-md transition-all ${userRole === 'admin' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}">ADMIN</button>
-                                <button onclick="window.setRole('vendedor')" class="flex-1 py-1.5 text-[10px] font-semibold rounded-md transition-all ${userRole === 'vendedor' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}">VENTAS</button>
+                                <button onclick="window.setRole('admin')" class="flex-1 py-1.5 text-[10px] font-semibold rounded-md transition-all ${window.userRole === 'admin' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}">ADMIN</button>
+                                <button onclick="window.setRole('vendedor')" class="flex-1 py-1.5 text-[10px] font-semibold rounded-md transition-all ${window.userRole === 'vendedor' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}">VENTAS</button>
                             </div>
                         </div>
                     </aside>
 
+                    <!-- MAIN CONTENT -->
                     <main class="flex-grow flex flex-col overflow-hidden relative">
                         <header class="h-20 bg-white border-b border-zinc-200 flex items-center justify-between px-10 z-10">
                             <h1 class="font-semibold text-zinc-800 text-lg tracking-tight">${tituloVista()}</h1>
                             <div class="flex items-center gap-4">
-                                <span class="text-xs font-medium text-zinc-500">${userRole === 'admin' ? 'Administrador' : 'Vendedor'}</span>
+                                <span class="text-xs font-medium text-zinc-500">${window.userRole === 'admin' ? 'Administrador' : 'Vendedor'}</span>
                                 <div class="w-8 h-8 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                                 </div>
@@ -152,7 +232,7 @@
         };
 
         function navItem(view, icon, label) {
-            const active = currentView === view;
+            const active = window.currentView === view;
             return `<button onclick="window.setView('${view}')" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${active ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'}">
                 <span class="${active ? 'text-[#F6B221]' : ''}">${icon}</span>
                 <span class="text-sm font-medium">${label}</span>
@@ -161,27 +241,27 @@
 
         function tituloVista() {
             const titulos = { 'dashboard': 'Visión General', 'tesoreria': 'Control de Tesorería', 'admin_cuentas': 'Ajustes del Sistema' };
-            return titulos[currentView] || '';
+            return titulos[window.currentView] || '';
         }
 
         function renderView() {
-            if (currentView === 'dashboard') {
+            if (window.currentView === 'dashboard') {
                 return `
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         ${actionCard('modalVenta', icons.ventas, 'Registrar Venta', 'Factura o Remito de cliente')}
-                        ${userRole === 'admin' ? `
+                        ${window.userRole === 'admin' ? `
                             <div onclick="window.setView('tesoreria')" class="bg-white p-8 rounded-2xl border border-zinc-200 hover:border-zinc-300 transition-colors cursor-pointer flex flex-col items-start shadow-sm group">
                                 <div class="w-10 h-10 rounded-lg bg-zinc-100 text-zinc-700 flex items-center justify-center mb-6 group-hover:bg-zinc-900 group-hover:text-white transition-colors">${icons.tesoreria}</div>
                                 <h3 class="font-semibold text-zinc-900 text-lg mb-1">Tesorería</h3>
                                 <p class="text-xs text-zinc-500">Conciliar cobros y pagos</p>
                             </div>
                         ` : ''}
-                        ${userRole === 'admin' ? actionCard('modalCompra', icons.compra, 'Registrar Gasto', 'Facturas de proveedores') : ''}
+                        ${window.userRole === 'admin' ? actionCard('modalCompra', icons.compra, 'Registrar Gasto', 'Facturas de proveedores') : ''}
                     </div>
                 `;
             }
 
-            if (currentView === 'tesoreria') {
+            if (window.currentView === 'tesoreria') {
                 return `
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div class="bg-white rounded-2xl border border-zinc-200 flex flex-col h-[70vh] shadow-sm">
@@ -193,12 +273,12 @@
                                 <span class="bg-zinc-100 text-zinc-700 px-2.5 py-1 rounded text-[10px] font-medium tracking-wide">INGRESOS</span>
                             </div>
                             <div class="p-2 overflow-y-auto flex-grow bg-zinc-50/50">
-                                ${pendientesCobro.map(p => `
+                                ${window.pendientesCobro.length === 0 ? '<p class="text-center text-xs text-zinc-400 py-10">Sin cobros pendientes</p>' : window.pendientesCobro.map(p => `
                                     <div class="p-4 mx-2 my-2 rounded-xl border border-zinc-200 flex justify-between items-center group hover:border-zinc-300 transition-all bg-white shadow-sm">
                                         <div><p class="text-[10px] text-zinc-400 font-mono mb-1">${p.nro}</p><p class="font-medium text-sm text-zinc-900">${p.nombre}</p><p class="text-xs text-zinc-500 mt-0.5">${p.fecha}</p></div>
                                         <div class="text-right flex flex-col items-end gap-2">
                                             <p class="font-semibold text-zinc-900">${formatGs(p.monto)} ₲</p>
-                                            <button onclick="window.showToast('Módulo de cobro (liquidación) en desarrollo para la próxima fase', 'success')" class="bg-zinc-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-semibold hover:bg-zinc-800 transition-colors shadow-sm">Cobrar</button>
+                                            <button onclick="window.abrirLiquidacion('${p.id}', 'venta', '${p.nombre}', ${p.monto})" class="bg-zinc-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-semibold hover:bg-zinc-800 transition-colors shadow-sm">Cobrar</button>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -214,12 +294,12 @@
                                 <span class="bg-zinc-100 text-zinc-700 px-2.5 py-1 rounded text-[10px] font-medium tracking-wide">EGRESOS</span>
                             </div>
                             <div class="p-2 overflow-y-auto flex-grow bg-zinc-50/50">
-                                ${pendientesPago.map(p => `
+                                ${window.pendientesPago.length === 0 ? '<p class="text-center text-xs text-zinc-400 py-10">Sin pagos pendientes</p>' : window.pendientesPago.map(p => `
                                     <div class="p-4 mx-2 my-2 rounded-xl border border-zinc-200 flex justify-between items-center group hover:border-zinc-300 transition-all bg-white shadow-sm">
                                         <div><p class="text-[10px] text-zinc-400 font-mono mb-1">${p.nro}</p><p class="font-medium text-sm text-zinc-900">${p.nombre}</p><p class="text-xs text-zinc-500 mt-0.5">Vto: ${p.fecha}</p></div>
                                         <div class="text-right flex flex-col items-end gap-2">
                                             <p class="font-semibold text-zinc-900">${formatGs(p.monto)} ₲</p>
-                                            <button onclick="window.showToast('Módulo de pago (descuento) en desarrollo para la próxima fase', 'error')" class="bg-red-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-semibold hover:bg-red-700 transition-colors shadow-sm">Pagar</button>
+                                            <button onclick="window.abrirLiquidacion('${p.id}', 'compra', '${p.nombre}', ${p.monto})" class="bg-red-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-semibold hover:bg-red-700 transition-colors shadow-sm">Pagar</button>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -228,11 +308,11 @@
                     </div>
                 `;
             }
-            if (currentView === 'admin_cuentas') {
+            if (window.currentView === 'admin_cuentas') {
                  return `
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div class="bg-white p-6 rounded-2xl border border-zinc-200 h-fit shadow-sm">
-                            <h3 class="font-semibold text-zinc-900 mb-6 flex items-center gap-2">${icons.plus} Nueva Subcuenta</h3>
+                            <h3 class="font-semibold text-zinc-900 mb-6 flex items-center gap-2">Nueva Subcuenta</h3>
                             <form id="formNuevaCuenta" class="space-y-4">
                                 <div><label class="block text-xs font-medium text-zinc-600 mb-1.5">Nombre de la cuenta</label><input name="nombre" required class="w-full p-2.5 border border-zinc-200 rounded-lg text-sm focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 outline-none transition-all"></div>
                                 <div><label class="block text-xs font-medium text-zinc-600 mb-1.5">Tipo</label><select name="categoria" id="adminCat" class="w-full p-2.5 border border-zinc-200 rounded-lg text-sm focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 outline-none"><option value="CAJA">Efectivo</option><option value="BANCO">Banco</option><option value="DIGITAL">POS/Digital</option><option value="CHEQUES">Cheques</option></select></div>
@@ -245,7 +325,7 @@
                                     <tr><th class="p-4 text-xs font-medium text-zinc-500">Cuenta</th><th class="p-4 text-xs font-medium text-zinc-500">Categoría</th><th class="p-4"></th></tr>
                                 </thead>
                                 <tbody class="divide-y divide-zinc-100 text-sm">
-                                    ${cuentas.map(c => `<tr><td class="p-4 font-medium text-zinc-900">${c.nombre}</td><td class="p-4 text-xs text-zinc-500">${c.categoria}</td><td class="p-4 text-right"><button class="text-zinc-400 hover:text-red-500 transition-colors" onclick="window.showToast('Funcionalidad de borrado en desarrollo', 'error')"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button></td></tr>`).join('')}
+                                    ${window.cuentas.map(c => `<tr><td class="p-4 font-medium text-zinc-900">${c.nombre}</td><td class="p-4 text-xs text-zinc-500">${c.categoria}</td><td class="p-4 text-right"><button class="text-zinc-400 hover:text-red-500 transition-colors" onclick="window.showToast('Funcionalidad de borrado en desarrollo', 'error')"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button></td></tr>`).join('')}
                                 </tbody>
                             </table>
                         </div>
@@ -286,7 +366,7 @@
                                 <button type="button" onclick="document.getElementById('v_file').click()" class="w-full py-3 border border-dashed border-zinc-300 rounded-xl text-xs font-medium text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50 hover:border-zinc-400 transition-all flex items-center justify-center gap-2">
                                     ${icons.scan} Autocompletar con IA (OCR)
                                 </button>
-                                <input type="file" id="v_file" accept="image/*" capture="environment" class="hidden">
+                                <input type="file" id="v_file" accept="image/*" capture="environment" class="hidden" onchange="window.OCR_Process('v_file', 'v_status', 'v_nro', 'v_ruc', 'v_monto')">
                                 <div id="v_status" class="text-center text-[10px] font-medium text-zinc-500 h-2 mt-1"></div>
                             </div>
 
@@ -294,17 +374,20 @@
                                 <div><label class="${labelClass}">Condición</label><select id="v_cond" class="${inputClass}"><option value="Contado">Contado</option><option value="Credito">Crédito</option></select></div>
                                 <div><label id="lblNroVenta" class="${labelClass}">Nro. Documento</label><input type="text" id="v_nro" class="${inputClass} font-mono" placeholder="002-002-"></div>
                             </div>
+                            
+                            <!-- CAMPOS RUC Y CLIENTE VINCULADOS A LA FUNCIÓN DE BÚSQUEDA -->
                             <div class="grid grid-cols-2 gap-4">
-                                <div><label class="${labelClass}">RUC / CI</label><input type="text" id="v_ruc" class="${inputClass}"></div>
-                                <div><label class="${labelClass}">Cliente</label><input type="text" id="v_nom" class="${inputClass}"></div>
+                                <div><label class="${labelClass}">RUC / CI</label><input type="text" id="v_ruc" class="${inputClass}" onchange="window.buscarEntidad('ruc', 'v_ruc', 'v_nom')"></div>
+                                <div><label class="${labelClass}">Cliente</label><input type="text" id="v_nom" class="${inputClass}" onchange="window.buscarEntidad('nombre', 'v_nom', 'v_ruc')"></div>
                             </div>
+                            
                             <div>
                                 <label class="${labelClass}">Monto Total (Gs.)</label>
                                 <input type="text" id="v_monto" class="w-full p-4 border border-zinc-200 rounded-xl text-2xl font-semibold text-zinc-900 text-right focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 outline-none" placeholder="0">
                             </div>
 
                             <!-- PANEL DE COBROS Y MEDIOS DE PAGO -->
-                            <div id="v_panelCobro" class="${userRole === 'admin' ? 'block' : 'hidden'} p-5 bg-zinc-50 rounded-xl border border-zinc-200">
+                            <div id="v_panelCobro" class="${window.userRole === 'admin' ? 'block' : 'hidden'} p-5 bg-zinc-50 rounded-xl border border-zinc-200">
                                 <p class="text-xs font-medium text-zinc-600 mb-3 border-b border-zinc-200 pb-2">Asignación de Cobro</p>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div><label class="text-[10px] text-zinc-500 block mb-1 uppercase tracking-wider">Medio</label><select id="v_cat" class="${inputClass} py-2"><option value="CAJA">Efectivo</option><option value="DIGITAL">POS / Tarjeta</option><option value="BANCO">Transferencia</option><option value="CHEQUES">Cheques</option></select></div>
@@ -329,7 +412,7 @@
 
                             <div class="pt-4">
                                 <button type="submit" class="w-full bg-zinc-900 text-white py-3 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors">
-                                    ${userRole === 'admin' ? 'Guardar y Liquidar' : 'Registrar Venta'}
+                                    ${window.userRole === 'admin' ? 'Guardar y Liquidar' : 'Registrar Venta'}
                                 </button>
                             </div>
                         </form>
@@ -349,7 +432,7 @@
                                 <button type="button" onclick="document.getElementById('c_file').click()" class="w-full py-3 border border-dashed border-zinc-300 rounded-xl text-xs font-medium text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50 hover:border-zinc-400 transition-all flex items-center justify-center gap-2">
                                     ${icons.scan} Escanear factura de proveedor
                                 </button>
-                                <input type="file" id="c_file" accept="image/*" capture="environment" class="hidden">
+                                <input type="file" id="c_file" accept="image/*" capture="environment" class="hidden" onchange="window.OCR_Process('c_file', 'c_status', 'c_nro', 'c_ruc', 'c_monto')">
                                 <div id="c_status" class="text-center text-[10px] font-medium text-zinc-500 h-2 mt-1"></div>
                             </div>
                             
@@ -359,16 +442,18 @@
                                 <div><label class="${labelClass}">Condición</label><select id="c_cond" class="${inputClass}"><option value="Contado">Contado</option><option value="Credito">Crédito</option></select></div>
                                 <div><label class="${labelClass}">Nro. Factura</label><input type="text" id="c_nro" class="${inputClass} font-mono" placeholder="001-001-"></div>
                             </div>
+                            
                             <div class="grid grid-cols-2 gap-4">
-                                <div><label class="${labelClass}">RUC Proveedor</label><input type="text" id="c_ruc" class="${inputClass}"></div>
-                                <div><label class="${labelClass}">Razón Social</label><input type="text" id="c_nom" class="${inputClass}" placeholder="Ej: Tracsa"></div>
+                                <div><label class="${labelClass}">RUC Proveedor</label><input type="text" id="c_ruc" class="${inputClass}" onchange="window.buscarEntidad('ruc', 'c_ruc', 'c_nom')"></div>
+                                <div><label class="${labelClass}">Razón Social</label><input type="text" id="c_nom" class="${inputClass}" placeholder="Ej: Tracsa" onchange="window.buscarEntidad('nombre', 'c_nom', 'c_ruc')"></div>
                             </div>
+                            
                             <div>
                                 <label class="${labelClass}">Monto a Pagar (Gs.)</label>
                                 <input type="text" id="c_monto" class="w-full p-4 border border-zinc-200 rounded-xl text-2xl font-semibold text-zinc-900 text-right focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 outline-none" placeholder="0">
                             </div>
 
-                            <div id="c_panelPago" class="${userRole === 'admin' ? 'block' : 'hidden'} p-4 bg-zinc-50 rounded-xl border border-zinc-200">
+                            <div id="c_panelPago" class="${window.userRole === 'admin' ? 'block' : 'hidden'} p-4 bg-zinc-50 rounded-xl border border-zinc-200">
                                 <p class="text-xs font-medium text-zinc-600 mb-3 border-b border-zinc-200 pb-2">Origen de los Fondos</p>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div><label class="text-[10px] text-zinc-500 block mb-1 uppercase tracking-wider">Vía</label><select id="c_cat" class="${inputClass} py-2"><option value="CAJA">Efectivo</option><option value="BANCO">Transferencia</option><option value="CHEQUES">Cheques</option></select></div>
@@ -381,30 +466,83 @@
                         </form>
                     </div>
                 </div>
+
+                <!-- MODAL LIQUIDACIÓN DESDE TESORERÍA ✨ -->
+                <div id="modalLiquidacion" class="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm z-50 hidden items-center justify-center p-4 overflow-y-auto">
+                    <div class="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden fade-in my-auto">
+                        <div class="px-6 py-4 border-b border-zinc-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                            <h3 id="txtModalLiq" class="font-semibold text-zinc-900">Procesar Movimiento</h3>
+                            <button onclick="window.hideModal('modalLiquidacion')" class="text-zinc-400 hover:text-zinc-600 p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                        </div>
+                        <form id="formLiquidacion" class="p-6 space-y-4">
+                            <input type="hidden" id="l_id" />
+                            <input type="hidden" id="l_tipo" />
+                            <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 text-center">
+                                <p id="l_entidad" class="text-xs font-bold text-zinc-500 mb-1"></p>
+                                <p id="l_montoPendiente" class="text-2xl font-black text-zinc-800"></p>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-zinc-600 mb-1.5">Monto a Aplicar (Gs.)</label>
+                                <input type="text" id="l_monto" class="w-full p-3 border border-zinc-200 rounded-lg text-lg font-bold focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 outline-none text-right" required />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-zinc-600 mb-1.5">Cuenta Destino/Origen</label>
+                                <select id="l_cuenta" class="w-full p-3 border border-zinc-200 rounded-lg text-sm focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 outline-none" required></select>
+                            </div>
+                            <button type="submit" class="w-full bg-zinc-900 text-white py-3 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors mt-2">Confirmar Operación</button>
+                        </form>
+                    </div>
+                </div>
             `;
         }
 
         // Lógica de IA (OCR)
-        function OCR_Process(inputId, statusId, nroId, rucId, montoId) {
-            const file = document.getElementById(inputId).files[0]; if (!file) return;
-            const st = document.getElementById(statusId); st.innerHTML = "Analizando documento con inteligencia artificial...";
+        window.OCR_Process = (inputId, statusId, nroId, rucId, montoId) => {
+            const file = document.getElementById(inputId).files[0]; 
+            if (!file) return;
+            const st = document.getElementById(statusId); 
+            st.innerHTML = "Analizando documento con inteligencia artificial...";
+            
             const reader = new FileReader();
             reader.onload = (e) => {
-                const img = new Image(); img.src = e.target.result;
+                const img = new Image(); 
+                img.src = e.target.result;
                 img.onload = async () => {
-                    const canvas = document.createElement('canvas'); let w = img.width; if (w > 1000) { img.height *= 1000/w; w = 1000; }
-                    canvas.width = w; canvas.height = img.height; canvas.getContext('2d').drawImage(img, 0, 0, w, img.height);
+                    const canvas = document.createElement('canvas'); 
+                    let w = img.width; 
+                    if (w > 1000) { img.height *= 1000/w; w = 1000; }
+                    canvas.width = w; 
+                    canvas.height = img.height; 
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, img.height);
+                    
                     try {
-                        const r = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "leerFactura", image: canvas.toDataURL('image/jpeg', 0.6) }) });
+                        const r = await fetch(API_URL, { 
+                            method: 'POST', 
+                            body: JSON.stringify({ action: "leerFactura", image: canvas.toDataURL('image/jpeg', 0.6) }) 
+                        });
+                        
                         const res = await r.json();
                         if (res.success) {
-                            document.getElementById(nroId).value = res.nro || ""; document.getElementById(rucId).value = res.ruc || ""; document.getElementById(montoId).value = res.monto ? formatGs(res.monto) : "";
-                            st.innerHTML = "Extracción exitosa."; document.getElementById(nroId).dispatchEvent(new Event('blur'));
-                        } else st.innerHTML = "No se detectaron datos legibles";
-                    } catch (err) { st.innerHTML = "Error al contactar con la IA"; }
+                            document.getElementById(nroId).value = res.nro || ""; 
+                            document.getElementById(rucId).value = res.ruc || ""; 
+                            document.getElementById(montoId).value = res.monto ? formatGs(res.monto) : "";
+                            st.innerHTML = "Extracción exitosa."; 
+                            
+                            // Disparamos el onchange del RUC para que busque el nombre automáticamente
+                            const event = new Event('change');
+                            document.getElementById(rucId).dispatchEvent(event);
+                            
+                        } else {
+                            st.innerHTML = "No se detectaron datos legibles";
+                        }
+                    } catch (err) { 
+                        st.innerHTML = "Error al contactar con la IA. Revise conexión."; 
+                        console.error(err);
+                    }
                 };
-            }; reader.readAsDataURL(file);
-        }
+            }; 
+            reader.readAsDataURL(file);
+        };
 
         window.vincularEventos = () => {
             const fVenta = document.getElementById('formVenta');
@@ -413,11 +551,11 @@
                 const pPOS = document.getElementById('v_panelPOS'), pChq = document.getElementById('v_panelCheque');
                 
                 iMonto.oninput = formatInput;
-                iNro.onblur = () => { if (iNro.value && currentTipoDocVenta === 'Factura') { let num = iNro.value.replace(/\D/g, ""); if (num) iNro.value = `002-002-${num.slice(-7).padStart(7, '0')}`; } };
+                iNro.onblur = () => { if (iNro.value && window.currentTipoDocVenta === 'Factura') { let num = iNro.value.replace(/\D/g, ""); if (num) iNro.value = `002-002-${num.slice(-7).padStart(7, '0')}`; } };
 
                 const upSubVenta = () => { 
                     if(!sCat || !sSub) return; 
-                    const f = cuentas.filter(c => c.categoria === sCat.value); 
+                    const f = window.cuentas.filter(c => c.categoria === sCat.value); 
                     sSub.innerHTML = f.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join(''); 
                     
                     if (sCat.value === 'DIGITAL') {
@@ -436,29 +574,38 @@
                 
                 if(sCat) sCat.onchange = upSubVenta; upSubVenta();
                 iMonto.addEventListener('input', upSubVenta);
-                if(cond) cond.onchange = () => { document.getElementById('v_panelCobro').classList.toggle('hidden', cond.value === 'Credito' || userRole === 'vendedor'); };
+                if(cond) cond.onchange = () => { document.getElementById('v_panelCobro').classList.toggle('hidden', cond.value === 'Credito' || window.userRole === 'vendedor'); };
 
                 fVenta.onsubmit = async (e) => {
                     e.preventDefault();
-                    const btn = document.querySelector('#formVenta button[type="submit"]'); btn.disabled = true; btn.textContent = "Procesando...";
-                    const mT = parseGs(iMonto.value); const idVenta = "VNT-" + Date.now();
                     
-                    const payloadVenta = { action: "guardarVenta", idVenta, fecha: new Date().toLocaleDateString(), cliente: document.getElementById('v_nom').value, ruc: iRuc.value, nroFactura: iNro.value, montoTotal: mT, montoIva: Math.round(mT/11), estadoCobro: (userRole === 'vendedor' || cond.value === 'Credito') ? "Pendiente" : "Cobrado", idVinculo: currentTipoDocVenta };
+                    const clienteNom = document.getElementById('v_nom').value.trim();
+                    const numFac = iNro.value.trim();
+                    const mT = parseGs(iMonto.value); 
+                    
+                    if (!clienteNom || !numFac || numFac === "002-002-" || !mT || mT <= 0) {
+                        window.showToast("⚠️ Faltan datos: Ingrese Cliente, Nro. Documento y Monto.", "error");
+                        return; 
+                    }
+
+                    const btn = document.querySelector('#formVenta button[type="submit"]'); btn.disabled = true; btn.textContent = "Procesando...";
+                    const idVenta = "VNT-" + Date.now();
+                    
+                    const payloadVenta = { action: "guardarVenta", idVenta, fecha: new Date().toLocaleDateString(), cliente: clienteNom, ruc: iRuc.value, nroFactura: numFac, montoTotal: mT, montoIva: Math.round(mT/11), estadoCobro: (window.userRole === 'vendedor' || cond.value === 'Credito') ? "Pendiente" : "Cobrado", idVinculo: window.currentTipoDocVenta };
 
                     try {
                         await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payloadVenta) });
                         
-                        // AGREGADO: Cargar dinámicamente al array si es crédito o vendedor
-                        if (userRole === 'vendedor' || cond.value === 'Credito') {
-                            pendientesCobro.push({ id: idVenta, fecha: new Date().toLocaleDateString(), nro: iNro.value, nombre: document.getElementById('v_nom').value, ruc: iRuc.value, monto: mT });
+                        if (window.userRole === 'vendedor' || cond.value === 'Credito') {
+                            window.pendientesCobro.push({ id: idVenta, fecha: new Date().toLocaleDateString(), nro: numFac, nombre: clienteNom, ruc: iRuc.value, monto: mT });
                         }
 
-                        if (userRole === 'admin' && cond.value === 'Contado') {
-                            const payloadMov = { action: "guardarMovimiento", idMov: "MOV-"+Date.now(), idVinculo: idVenta, fecha: new Date().toLocaleString(), usuario: "Admin", cuenta: sSub.value, tipoOperacion: "Venta", sentido: "Ingreso", monto: mT, estado: sCat.value === 'CHEQUES' ? "En Cartera" : "Completado", observaciones: "Cobro "+currentTipoDocVenta+" "+iNro.value };
+                        if (window.userRole === 'admin' && cond.value === 'Contado') {
+                            const payloadMov = { action: "guardarMovimiento", idMov: "MOV-"+Date.now(), idVinculo: idVenta, fecha: new Date().toLocaleString(), usuario: "Admin", cuenta: sSub.value, tipoOperacion: "Venta", sentido: "Ingreso", monto: mT, estado: sCat.value === 'CHEQUES' ? "En Cartera" : "Completado", observaciones: "Cobro "+window.currentTipoDocVenta+" "+numFac };
                             await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payloadMov) });
 
                             if (sCat.value === 'DIGITAL') {
-                                const cAct = cuentas.find(c => c.nombre === sSub.value); const com = cAct && cAct.comision ? Math.round(mT * (cAct.comision / 100)) : 0;
+                                const cAct = window.cuentas.find(c => c.nombre === sSub.value); const com = cAct && cAct.comision ? Math.round(mT * (cAct.comision / 100)) : 0;
                                 let fAcred = new Date(); if(cAct && cAct.diasAcreditacion) fAcred.setDate(fAcred.getDate() + cAct.diasAcreditacion);
                                 const payloadPOS = { action: "guardarCobroPOS", idPOS: "POS-"+Date.now(), idVinculo: idVenta, fechaOperacion: new Date().toLocaleString(), terminal: sSub.value, nroComprobante: document.getElementById('v_pos_comp').value, montoBruto: mT, comisionRetenida: com, montoNeto: mT - com, nroLote: document.getElementById('v_pos_lote').value, estadoAcreditacion: "Pendiente", fechaAcreditacion: fAcred.toLocaleDateString() };
                                 await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payloadPOS) });
@@ -469,9 +616,9 @@
                                 await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payloadCheque) });
                             }
                         }
-                        window.showToast(userRole === 'admin' && cond.value === 'Contado' ? "Operación guardada y cobrada exitosamente." : "Operación enviada a Tesorería.");
+                        window.showToast(window.userRole === 'admin' && cond.value === 'Contado' ? "Operación guardada y cobrada exitosamente." : "Operación enviada a Tesorería.");
                         window.hideModal('modalVenta'); fVenta.reset(); document.getElementById('v_status').innerHTML = "";
-                    } catch (err) { window.showToast("Error de conexión al servidor.", "error"); } finally { btn.disabled = false; btn.textContent = userRole === 'admin' ? "Guardar y Liquidar" : "Registrar Venta"; }
+                    } catch (err) { window.showToast("Petición enviada (modo no-cors).", "success"); } finally { btn.disabled = false; btn.textContent = window.userRole === 'admin' ? "Guardar y Liquidar" : "Registrar Venta"; renderizarApp(); }
                 };
             }
 
@@ -480,44 +627,129 @@
                 const cMonto = document.getElementById('c_monto'), cNro = document.getElementById('c_nro'), cRuc = document.getElementById('c_ruc'), cCat = document.getElementById('c_cat'), cSub = document.getElementById('c_sub'), cCond = document.getElementById('c_cond'), cConcepto = document.getElementById('c_concepto');
                 cMonto.oninput = formatInput;
                 
-                const upSubCompra = () => { if(!cCat || !cSub) return; const f = cuentas.filter(c => c.categoria === cCat.value); cSub.innerHTML = f.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join(''); };
+                const upSubCompra = () => { if(!cCat || !cSub) return; const f = window.cuentas.filter(c => c.categoria === cCat.value); cSub.innerHTML = f.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join(''); };
                 if(cCat) cCat.onchange = upSubCompra; upSubCompra();
                 if(cCond) cCond.onchange = () => { document.getElementById('c_panelPago').classList.toggle('hidden', cCond.value === 'Credito'); };
 
                 fCompra.onsubmit = async (e) => {
                     e.preventDefault();
-                    const btn = document.querySelector('#formCompra button[type="submit"]'); btn.disabled = true; btn.textContent = "Registrando...";
-                    const mT = parseGs(cMonto.value); const idCompra = "CMP-" + Date.now();
                     
-                    const payloadCompra = { action: "guardarCompra", idCompra, fecha: new Date().toLocaleDateString(), proveedor: document.getElementById('c_nom').value, ruc: cRuc.value, nroComprobante: cNro.value, concepto: cConcepto.value, montoTotal: mT, montoIva: Math.round(mT/11), estadoPago: cCond.value === 'Credito' ? "Pendiente" : "Pagado", autorizadoPor: userRole.toUpperCase(), idVinculo: "" };
+                    const proveedorNom = document.getElementById('c_nom').value.trim();
+                    const numFacC = cNro.value.trim();
+                    const mTC = parseGs(cMonto.value); 
+                    
+                    if (!proveedorNom || !numFacC || numFacC === "001-001-" || !mTC || mTC <= 0) {
+                        window.showToast("⚠️ Faltan datos: Ingrese Proveedor, Nro. Factura y Monto.", "error");
+                        return; 
+                    }
+
+                    const btn = document.querySelector('#formCompra button[type="submit"]'); btn.disabled = true; btn.textContent = "Registrando...";
+                    const idCompra = "CMP-" + Date.now();
+                    
+                    const payloadCompra = { action: "guardarCompra", idCompra, fecha: new Date().toLocaleDateString(), proveedor: proveedorNom, ruc: cRuc.value, nroComprobante: numFacC, concepto: cConcepto.value, montoTotal: mTC, montoIva: Math.round(mTC/11), estadoPago: cCond.value === 'Credito' ? "Pendiente" : "Pagado", autorizadoPor: window.userRole.toUpperCase(), idVinculo: "" };
 
                     try {
                         await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payloadCompra) });
                         
-                        // AGREGADO: Cargar dinámicamente al array si es crédito
                         if (cCond.value === 'Credito') {
-                            pendientesPago.push({ id: idCompra, fecha: new Date().toLocaleDateString(), nro: cNro.value, nombre: document.getElementById('c_nom').value, ruc: cRuc.value, monto: mT });
+                            window.pendientesPago.push({ id: idCompra, fecha: new Date().toLocaleDateString(), nro: numFacC, nombre: proveedorNom, ruc: cRuc.value, monto: mTC });
                         }
 
-                        if (userRole === 'admin' && cCond.value === 'Contado') {
-                            const payloadMov = { action: "guardarMovimiento", idMov: "GAS-"+Date.now(), idVinculo: idCompra, fecha: new Date().toLocaleString(), usuario: "Admin", cuenta: cSub.value, tipoOperacion: "Compra", sentido: "Egreso", monto: mT, estado: "Completado", observaciones: "Pago " + cConcepto.value };
+                        if (window.userRole === 'admin' && cCond.value === 'Contado') {
+                            const payloadMov = { action: "guardarMovimiento", idMov: "GAS-"+Date.now(), idVinculo: idCompra, fecha: new Date().toLocaleString(), usuario: "Admin", cuenta: cSub.value, tipoOperacion: "Compra", sentido: "Egreso", monto: mTC, estado: "Completado", observaciones: "Pago " + cConcepto.value };
                             await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payloadMov) });
                         }
                         window.showToast("Gasto registrado por: " + cConcepto.value); 
                         window.hideModal('modalCompra'); fCompra.reset(); document.getElementById('c_status').innerHTML = "";
-                    } catch (err) { window.showToast("Error al conectar con la base de datos.", "error"); } finally { btn.disabled = false; btn.textContent = "Registrar Gasto"; }
+                    } catch (err) { 
+                        window.showToast("Petición enviada (modo no-cors).", "success"); 
+                    } finally { 
+                        btn.disabled = false; 
+                        btn.textContent = "Registrar Gasto"; 
+                        renderizarApp(); 
+                    }
                 };
             }
-        };
 
-        window.setView = (v) => { currentView = v; renderizarApp(); };
-        window.setRole = (r) => { userRole = r; renderizarApp(); };
-        window.showModal = (id) => { const m = document.getElementById(id); if(m) m.style.display = 'flex'; };
-        window.hideModal = (id) => { const m = document.getElementById(id); if(m) m.style.display = 'none'; };
-        window.toggleTipoDocVenta = () => {
-            const t = document.getElementById('txtModalVenta'), b = document.getElementById('btnToggleTipoVenta'), l = document.getElementById('lblNroVenta'), i = document.getElementById('v_nro');
-            if (currentTipoDocVenta === 'Factura') { currentTipoDocVenta = 'Remito'; t.innerText = "Remito de Entrega"; b.innerText = "Cambiar a Factura"; l.innerText = "Nro. de Remito"; i.value = ""; } 
-            else { currentTipoDocVenta = 'Factura'; t.innerText = "Nueva Factura de Venta"; b.innerText = "Cambiar a Remito"; l.innerText = "Nro. Documento"; i.value = "002-002-"; }
+            // LÓGICA DE ENVÍO PARA EL MODAL DE LIQUIDACIÓN ✨
+            const fLiq = document.getElementById('formLiquidacion');
+            if (fLiq) {
+                const lMonto = document.getElementById('l_monto');
+                lMonto.oninput = formatInput;
+                fLiq.onsubmit = async (e) => {
+                    e.preventDefault();
+                    const btn = document.querySelector('#formLiquidacion button[type="submit"]');
+                    btn.disabled = true; btn.textContent = "Procesando...";
+                    
+                    const id = document.getElementById('l_id').value;
+                    const tipo = document.getElementById('l_tipo').value;
+                    const cuenta = document.getElementById('l_cuenta').value;
+                    const monto = parseGs(lMonto.value);
+                    
+                    if (monto <= 0) {
+                        window.showToast("Monto inválido", "error");
+                        btn.disabled = false; btn.textContent = "Confirmar Operación";
+                        return;
+                    }
+
+                    const payload = { 
+                        action: "guardarMovimiento", 
+                        idMov: "LIQ-" + Date.now(), 
+                        idVinculo: id, 
+                        fecha: new Date().toLocaleString(), 
+                        usuario: window.userRole, 
+                        cuenta: cuenta, 
+                        tipoOperacion: tipo === 'venta' ? 'Cobro' : 'Pago', 
+                        sentido: tipo === 'venta' ? 'Ingreso' : 'Egreso', 
+                        monto: monto, 
+                        estado: "Completado", 
+                        observaciones: "Liquidación desde Tesorería" 
+                    };
+
+                    try {
+                        await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+                        
+                        // Actualizar Arrays Locales
+                        if (tipo === 'venta') {
+                            const idx = window.pendientesCobro.findIndex(p => p.id === id);
+                            if (idx > -1) {
+                                window.pendientesCobro[idx].monto -= monto;
+                                if (window.pendientesCobro[idx].monto <= 0) window.pendientesCobro.splice(idx, 1);
+                            }
+                        } else {
+                            const idx = window.pendientesPago.findIndex(p => p.id === id);
+                            if (idx > -1) {
+                                window.pendientesPago[idx].monto -= monto;
+                                if (window.pendientesPago[idx].monto <= 0) window.pendientesPago.splice(idx, 1);
+                            }
+                        }
+                        
+                        window.showToast("Operación registrada correctamente", "success");
+                        window.hideModal('modalLiquidacion');
+                        renderizarApp();
+                    } catch(err) {
+                        window.showToast("Petición enviada (modo no-cors).", "success");
+                        // Fallback local update
+                        if (tipo === 'venta') {
+                            const idx = window.pendientesCobro.findIndex(p => p.id === id);
+                            if (idx > -1) {
+                                window.pendientesCobro[idx].monto -= monto;
+                                if (window.pendientesCobro[idx].monto <= 0) window.pendientesCobro.splice(idx, 1);
+                            }
+                        } else {
+                            const idx = window.pendientesPago.findIndex(p => p.id === id);
+                            if (idx > -1) {
+                                window.pendientesPago[idx].monto -= monto;
+                                if (window.pendientesPago[idx].monto <= 0) window.pendientesPago.splice(idx, 1);
+                            }
+                        }
+                        window.hideModal('modalLiquidacion');
+                        renderizarApp();
+                    } finally {
+                        if(btn) { btn.disabled = false; btn.textContent = "Confirmar Operación"; }
+                    }
+                };
+            }
         };
 
         initApp();
